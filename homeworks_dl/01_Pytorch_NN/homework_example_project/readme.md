@@ -33,37 +33,31 @@ python -m pytest tests/ --cov --cov-report=term-missing
 # Результаты тестов
 ```bash
 python -m pytest tests/ --cov=. --cov-report=term-missing
-=========================================================== test session starts ===========================================================
+====================================================================== test session starts ======================================================================
 platform darwin -- Python 3.13.3, pytest-8.3.5, pluggy-1.6.0
-rootdir: /Users/nikolayborovets/Desktop/FALT_MIPT/ML/ml_mipt_dafe_homeworks/homeworks_dl/01_Pytorch_NN/example_project
+rootdir: /Users/nikolayborovets/Desktop/FALT_MIPT/ML/ml_mipt_dafe_homeworks/homeworks_dl/01_Pytorch_NN/homework_example_project
 plugins: hydra-core-1.3.2, cov-6.1.1
-collected 31 items                                                                                                                        
+collected 38 items                                                                                                                                              
 
-tests/test_basic.py .......                                                                                                         [ 22%]
-tests/test_compute_metrics.py ..                                                                                                    [ 29%]
-tests/test_hparams.py .........                                                                                                     [ 58%]
-tests/test_pipeline.py ..s.......                                                                                                   [ 90%]
-tests/test_prepare_data.py ...                                                                                                      [100%]
+tests/test_basic.py .......                                                                                                                               [ 18%]
+tests/test_compute_metrics.py ...s..                                                                                                                      [ 34%]
+tests/test_hparams.py .........                                                                                                                           [ 57%]
+tests/test_pipeline.py ..s.........                                                                                                                       [ 89%]
+tests/test_prepare_data.py ....                                                                                                                           [100%]
 
-============================================================ warnings summary =============================================================
+======================================================================= warnings summary ========================================================================
 ...
-============================================================= tests coverage ==============================================================
-____________________________________________ coverage: platform darwin, python 3.13.3-final-0 _____________________________________________
+======================================================================== tests coverage =========================================================================
+_______________________________________________________ coverage: platform darwin, python 3.13.3-final-0 ________________________________________________________
 
-Name                            Stmts   Miss  Cover   Missing
--------------------------------------------------------------
-compute_metrics.py                 35      6    83%   30-33, 58-60
-conftest.py                         3      0   100%
-hparams.py                          1      0   100%
-prepare_data.py                     4      2    50%   4-5
-tests/test_basic.py                24      0   100%
-tests/test_compute_metrics.py      60      0   100%
-tests/test_hparams.py              31      0   100%
-tests/test_pipeline.py            156     20    87%   40-66, 164-167, 258
-tests/test_prepare_data.py         55     24    56%   25-36, 56-74, 82-83
-train.py                           86     22    74%   22-25, 48-65, 131-132, 141-164, 168
--------------------------------------------------------------
-TOTAL                             455     74    84%
-=============================================== 30 passed, 1 skipped, 20 warnings in 13.07s ===============================================
+Name                 Stmts   Miss  Cover   Missing
+--------------------------------------------------
+compute_metrics.py      35      4    89%   31, 58-60
+hparams.py               1      0   100%
+prepare_data.py          4      2    50%   4-5
+train.py                86     11    87%   22-25, 48-65, 131-132, 168
+--------------------------------------------------
+TOTAL                  126     17    87%
+========================================================== 36 passed, 2 skipped, 30 warnings in 16.20s ==========================================================
 
 ```

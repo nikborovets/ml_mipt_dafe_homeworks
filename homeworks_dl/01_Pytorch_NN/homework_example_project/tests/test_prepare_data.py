@@ -80,4 +80,36 @@ def test_prepare_data_module_import():
         import prepare_data
         assert prepare_data is not None
     except ImportError:
-        pytest.fail("Не удалось импортировать модуль prepare_data") 
+        pytest.fail("Не удалось импортировать модуль prepare_data")
+
+
+def test_prepare_data_main_execution():
+    """Тестирует выполнение main функции в prepare_data.py"""
+    with patch('torchvision.datasets.CIFAR10') as mock_cifar:
+        mock_train_dataset = MagicMock()
+        mock_test_dataset = MagicMock()
+        mock_cifar.return_value = mock_train_dataset
+        
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        prepare_data_path = os.path.join(project_root, 'prepare_data.py')
+        
+        with open(prepare_data_path, 'r') as f:
+            code = f.read()
+        
+        exec_globals = {
+            '__name__': '__main__',
+            '__file__': prepare_data_path,
+        }
+        
+        exec(code, exec_globals)
+        
+        assert mock_cifar.call_count == 2
+        
+        call_args = [str(call[0][0]) for call in mock_cifar.call_args_list]
+        assert any("train" in arg for arg in call_args)
+        assert any("test" in arg for arg in call_args)
+        
+        # Проверяем что download=True был передан
+        for call in mock_cifar.call_args_list:
+            assert call[1]['download'] == True 

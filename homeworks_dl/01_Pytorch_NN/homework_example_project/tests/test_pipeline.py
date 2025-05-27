@@ -8,6 +8,8 @@ import tempfile
 import os
 import shutil
 from unittest.mock import patch
+from unittest.mock import MagicMock
+from unittest.mock import mock_open
 
 from train import (
     create_model, create_datasets, create_data_loaders, 
@@ -271,3 +273,95 @@ def test_device_compatibility():
             output = model(sample_input)
             assert output.device.type == device.type
             assert output.shape == (2, 10)
+
+
+def test_train_main_function():
+    """Тестирует main функцию из train.py"""
+    from train import main
+    import tempfile
+    import os
+    
+    with tempfile.NamedTemporaryFile(suffix='.pt', delete=False) as model_file:
+        model_path = model_file.name
+    
+    with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as run_id_file:
+        run_id_path = run_id_file.name
+    
+    try:
+        with patch('train.wandb') as mock_wandb:
+            mock_run = MagicMock()
+            mock_run.id = "test_run_123"
+            mock_wandb.run = mock_run
+            mock_wandb.init.return_value = mock_run
+            
+            with patch('train.create_datasets') as mock_create_datasets:
+                num_samples = 50
+                train_data = torch.randn(num_samples, 3, 32, 32)
+                train_labels = torch.randint(0, 10, (num_samples,))
+                test_data = torch.randn(20, 3, 32, 32)
+                test_labels = torch.randint(0, 10, (20,))
+                
+                train_dataset = TensorDataset(train_data, train_labels)
+                test_dataset = TensorDataset(test_data, test_labels)
+                mock_create_datasets.return_value = (train_dataset, test_dataset)
+                
+                with patch('train.train_model') as mock_train_model:
+                    mock_model = create_model(device=torch.device('cpu'))
+                    mock_train_model.return_value = mock_model
+                    
+                    with patch('torch.save'):
+                        with patch('builtins.open', mock_open()) as mock_file:
+                            main()
+                            
+                            mock_wandb.init.assert_called_once()
+                            assert 'config' in mock_wandb.init.call_args[1]
+                            assert 'project' in mock_wandb.init.call_args[1]
+                            assert 'name' in mock_wandb.init.call_args[1]
+                            
+                            mock_wandb.watch.assert_called_once()
+                            
+                            mock_file.assert_called_with("run_id.txt", "w+")
+                            
+                            mock_create_datasets.assert_called_once_with(download=False)
+                            
+                            mock_train_model.assert_called_once()
+                            
+                            call_kwargs = mock_train_model.call_args[1]
+                            assert call_kwargs['log_interval'] == 100
+                            assert call_kwargs['wandb_log'] == True
+                            
+    finally:
+        for temp_file in [model_path, run_id_path]:
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
+
+
+def test_train_model_save_path_none():
+    """Тестирует train_model с save_path=None"""
+    # cоздаем маленькие тестовые датасеты
+    num_samples = 20
+    train_data = torch.randn(num_samples, 3, 32, 32)
+    train_labels = torch.randint(0, 10, (num_samples,))
+    test_data = torch.randn(10, 3, 32, 32)
+    test_labels = torch.randint(0, 10, (10,))
+    
+    train_dataset = TensorDataset(train_data, train_labels)
+    test_dataset = TensorDataset(test_data, test_labels)
+    
+    train_loader = DataLoader(train_dataset, batch_size=16)
+    test_loader = DataLoader(test_dataset, batch_size=16)
+    
+    device = torch.device("cpu")
+    model = create_model(device=device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    
+    # тестируем с save_path=None для покрытия этой ветки
+    trained_model = train_model(
+        model, train_loader, test_loader, criterion, optimizer,
+        epochs=1, device=device, log_interval=10, wandb_log=False,
+        save_path=None
+    )
+    
+    assert trained_model is not None
+    assert isinstance(trained_model, torch.nn.Module)
