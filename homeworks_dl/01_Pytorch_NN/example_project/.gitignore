@@ -1,0 +1,4 @@
+wandb/
+CIFAR10/
+model.pt
+run_id.txt
