@@ -28,6 +28,7 @@ python train.py
 python compute_metrics.py
 
 python -m pytest tests/ --cov=. --cov-report=term-missing
+python -m pytest tests/ --cov --cov-report=term-missing
 ```
 # Результаты тестов
 ```bash

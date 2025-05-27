@@ -1,0 +1,15 @@
+[run]
+source = .
+
+omit =
+    tests/*
+    */tests/*
+    conftest.py
+
+[report]
+include =
+    compute_metrics.py
+    prepare_data.py
+    hparams.py
+    pipeline.py
+    train.py
