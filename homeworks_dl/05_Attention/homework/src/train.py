@@ -10,7 +10,7 @@ import math
 import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
-from .data import load_and_process_data, convert_batch
+from .data import load_processed_data_iterators, convert_batch
 from .model import create_model
 from . import get_device
 
@@ -389,7 +389,7 @@ def main():
     print(f"Using device: {device}")
     
     # Загружаем данные
-    train_iter, test_iter, word_field = load_and_process_data(device=device)
+    train_iter, test_iter, word_field = load_processed_data_iterators(device=device)
     
     # Создание модели
     vocab_size = len(word_field.vocab)

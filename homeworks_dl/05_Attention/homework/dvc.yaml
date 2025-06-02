@@ -15,7 +15,7 @@ stages:
       - src/model.py
       - src/data.py
       - src/__init__.py
-      - news.csv
+      - data_processed/
     outs:
       - best_model.pt
       - training_plot.png
@@ -29,7 +29,7 @@ stages:
       - src/data.py
       - src/__init__.py
       - best_model.pt
-      - news.csv
+      - data_processed/
     outs:
       - predictions_on_test.txt
       - docs/attention_examples/

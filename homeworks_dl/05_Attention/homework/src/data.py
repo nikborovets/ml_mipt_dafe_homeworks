@@ -143,6 +143,56 @@ def load_processed_data(data_dir='data_processed'):
     return vocab, stats
 
 
+def load_processed_data_iterators(data_dir='data_processed', csv_path='news.csv', train_ratio=0.85, device=None):
+    """
+    Загружает обработанные данные и создает итераторы без повторной обработки.
+    
+    Args:
+        data_dir (str): Путь к директории с обработанными данными
+        csv_path (str): Путь к исходному CSV файлу
+        train_ratio (float): Доля данных для обучения
+        device (str/torch.device): Устройство для PyTorch
+        
+    Returns:
+        tuple: (train_iter, test_iter, word_field)
+    """
+    if device is None:
+        device = get_device()
+    
+    # Загружаем словарь и статистики
+    vocab, stats = load_processed_data(data_dir)
+    
+    # Создаем field с загруженным словарем
+    word_field = Field(tokenize='moses', init_token=BOS_TOKEN, eos_token=EOS_TOKEN, lower=True)
+    word_field.vocab = vocab
+    
+    # Создаем поля для данных
+    fields = [('source', word_field), ('target', word_field)]
+    
+    # Загружаем исходные данные и создаем examples
+    data = pd.read_csv(csv_path, delimiter=',')
+    
+    examples = []
+    for _, row in data.iterrows():
+        source_text = word_field.preprocess(row.text)
+        target_text = word_field.preprocess(row.title)
+        examples.append(Example.fromlist([source_text, target_text], fields))
+    
+    dataset = Dataset(examples, fields)
+    train_dataset, test_dataset = dataset.split(split_ratio=train_ratio)
+    
+    # Создаем итераторы
+    train_iter, test_iter = BucketIterator.splits(
+        datasets=(train_dataset, test_dataset), 
+        batch_sizes=(16, 32), 
+        shuffle=True, 
+        device=device, 
+        sort=False
+    )
+    
+    return train_iter, test_iter, word_field
+
+
 if __name__ == "__main__":
     # Тестовый запуск обработки данных
     device = get_device()

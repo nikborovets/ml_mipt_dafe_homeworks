@@ -10,7 +10,7 @@ from rouge_score import rouge_scorer
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
-from .data import load_and_process_data, make_mask, subsequent_mask
+from .data import load_processed_data_iterators, make_mask, subsequent_mask
 from .model import create_model
 from .train import compute_rouge_scores
 from . import get_device
@@ -310,7 +310,7 @@ def main():
     print(f"Using device: {device}")
     
     # Загружаем данные и модель
-    train_iter, test_iter, word_field = load_and_process_data(device=device)
+    train_iter, test_iter, word_field = load_processed_data_iterators(device=device)
     
     # Создание и загрузка модели
     vocab_size = len(word_field.vocab)
