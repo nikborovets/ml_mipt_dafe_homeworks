@@ -1,0 +1,25 @@
+{
+  "use_pretrained": true,
+  "model_size": 300,
+  "vocab_size": 55826,
+  "fasttext_path": "src/embeddings/cc.ru.300.bin",
+  "total_epochs": 1,
+  "final_train_loss": 6.858957160441217,
+  "final_val_loss": 6.581055554382589,
+  "final_rouge": {
+    "rouge1": 0.19166666666666665,
+    "rouge2": 0.05,
+    "rougeL": 0.19166666666666665
+  },
+  "best_val_loss": 6.581055554382589,
+  "tensorboard_log_dir": "runs/train_pretrained_20250602_213623",
+  "checkpoint_dir": "checkpoints",
+  "training_args": {
+    "epochs": 1,
+    "no_resume": false,
+    "checkpoint_dir": "checkpoints",
+    "save_every": 1,
+    "early_stopping": null,
+    "no_pretrained": false
+  }
+}
