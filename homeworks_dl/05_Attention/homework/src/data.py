@@ -1,6 +1,8 @@
 # from seminar_code: data processing and tokenization
 import pandas as pd
 import torch
+import pickle
+import os
 from torchtext.data import Field, Example, Dataset, BucketIterator
 from tqdm.auto import tqdm
 from . import get_device
@@ -116,6 +118,31 @@ def convert_batch(batch, pad_idx=1):
     return source_inputs, target_inputs, target_outputs, source_mask, target_mask
 
 
+def load_processed_data(data_dir='data_processed'):
+    """
+    Загружает обработанные данные из директории.
+    
+    Args:
+        data_dir (str): Путь к директории с обработанными данными
+        
+    Returns:
+        tuple: (vocab, stats) где vocab - словарь, stats - статистика
+    """
+    vocab_path = os.path.join(data_dir, 'vocab.pkl')
+    stats_path = os.path.join(data_dir, 'stats.pkl')
+    
+    if not os.path.exists(vocab_path) or not os.path.exists(stats_path):
+        raise FileNotFoundError(f"Processed data not found in {data_dir}. Run preprocess stage first.")
+    
+    with open(vocab_path, 'rb') as f:
+        vocab = pickle.load(f)
+    
+    with open(stats_path, 'rb') as f:
+        stats = pickle.load(f)
+    
+    return vocab, stats
+
+
 if __name__ == "__main__":
     # Тестовый запуск обработки данных
     device = get_device()
@@ -123,4 +150,26 @@ if __name__ == "__main__":
     
     print("Data processing completed successfully!")
     print(f"Vocabulary size: {len(word_field.vocab)}")
-    print(f"PAD token index: {word_field.vocab.stoi['<pad>']}") 
+    print(f"PAD token index: {word_field.vocab.stoi['<pad>']}")
+    
+    # Сохраняем обработанные данные для DVC
+    os.makedirs('data_processed', exist_ok=True)
+    
+    # Сохраняем словарь
+    with open('data_processed/vocab.pkl', 'wb') as f:
+        pickle.dump(word_field.vocab, f)
+    
+    # Сохраняем статистику
+    stats = {
+        'vocab_size': len(word_field.vocab),
+        'train_size': len(train_iter.dataset),
+        'test_size': len(test_iter.dataset),
+        'pad_token_idx': word_field.vocab.stoi['<pad>'],
+        'bos_token_idx': word_field.vocab.stoi[BOS_TOKEN],
+        'eos_token_idx': word_field.vocab.stoi[EOS_TOKEN],
+    }
+    
+    with open('data_processed/stats.pkl', 'wb') as f:
+        pickle.dump(stats, f)
+    
+    print(f"Processed data saved to data_processed/") 

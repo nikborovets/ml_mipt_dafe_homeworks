@@ -1,0 +1,23 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python -m src.data
+    deps:
+    - path: news.csv
+      hash: md5
+      md5: 349ef031d2d31c5ffccc7fd2476d0a12
+      size: 97238817
+    - path: src/__init__.py
+      hash: md5
+      md5: b93a891a0534ea3bb0af7bc1487c5007
+      size: 477
+    - path: src/data.py
+      hash: md5
+      md5: ce8ebda9b239ce9bae802f0b782d132a
+      size: 6157
+    outs:
+    - path: data_processed/
+      hash: md5
+      md5: 550ba5df51dc7915dfb8d3b7283f9bb9.dir
+      size: 6740727
+      nfiles: 2
