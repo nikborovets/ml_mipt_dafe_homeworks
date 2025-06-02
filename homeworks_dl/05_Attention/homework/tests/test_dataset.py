@@ -8,6 +8,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src import get_device
 from src.data import load_and_process_data, convert_batch, make_mask, subsequent_mask
 
 
@@ -15,7 +16,7 @@ def test_load_and_process_data():
     """Тест загрузки и обработки данных."""
     # Проверяем, что функция возвращает правильные типы
     train_iter, test_iter, word_field = load_and_process_data(
-        csv_path='news.csv', train_ratio=0.85, min_freq=7, device='cpu'
+        csv_path='news.csv', train_ratio=0.85, min_freq=7, device=get_device()
     )
     
     assert train_iter is not None
@@ -66,7 +67,7 @@ def test_subsequent_mask():
 
 def test_vocabulary_tokens():
     """Тест наличия специальных токенов в словаре."""
-    _, _, word_field = load_and_process_data(csv_path='news.csv', device='cpu')
+    _, _, word_field = load_and_process_data(csv_path='news.csv', device=get_device())
     
     vocab = word_field.vocab
     assert '<s>' in vocab.stoi

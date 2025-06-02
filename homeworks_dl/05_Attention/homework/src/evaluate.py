@@ -6,13 +6,15 @@ import seaborn as sns
 import numpy as np
 from tqdm.auto import tqdm
 import os
+from rouge_score import rouge_scorer
 
 from .data import load_and_process_data, make_mask, subsequent_mask
 from .model import create_model
 from .train import compute_rouge_scores
+from . import get_device
 
 
-def generate_summary(model, field, src_text, max_len=50, device='cpu'):
+def generate_summary(model, field, src_text, max_len=50, device=None):
     """
     Генерирует суммаризацию для входного текста (Задание 1).
     
@@ -21,12 +23,16 @@ def generate_summary(model, field, src_text, max_len=50, device='cpu'):
         field: Word field для токенизации
         src_text (str): Исходный текст
         max_len (int): Максимальная длина суммаризации
-        device: Устройство для вычислений
+        device: Устройство для вычислений. Если None, выбирается автоматически
         
     Returns:
         tuple: (generated_text, attention_weights)
     """
+    if device is None:
+        device = get_device()
+    
     model.eval()
+    model = model.to(device)
     
     # Токенизация входного текста
     src_tokens = field.preprocess(src_text)
@@ -72,7 +78,7 @@ def generate_summary(model, field, src_text, max_len=50, device='cpu'):
     return ' '.join(generated_words), attention_weights
 
 
-def extract_attention_weights(model, field, src_text, tgt_text, device='cpu'):
+def extract_attention_weights(model, field, src_text, tgt_text, device=None):
     """
     Извлекает веса внимания для визуализации (Задание 3).
     
@@ -81,12 +87,16 @@ def extract_attention_weights(model, field, src_text, tgt_text, device='cpu'):
         field: Word field
         src_text (str): Исходный текст
         tgt_text (str): Целевой текст
-        device: Устройство
+        device: Устройство для вычислений. Если None, выбирается автоматически
         
     Returns:
         tuple: (attention_weights, src_tokens, tgt_tokens)
     """
+    if device is None:
+        device = get_device()
+    
     model.eval()
+    model = model.to(device)
     
     # Токенизация
     src_tokens = field.preprocess(src_text)
@@ -168,7 +178,7 @@ def plot_attention(attention_weights, src_tokens, tgt_tokens, layer_idx=0, head_
     plt.close()
 
 
-def evaluate_model_on_test(model, field, test_iter, device='cpu', num_examples=10):
+def evaluate_model_on_test(model, field, test_iter, device=None, num_examples=10):
     """
     Оценивает модель на тестовых данных с ROUGE метриками.
     
@@ -176,12 +186,15 @@ def evaluate_model_on_test(model, field, test_iter, device='cpu', num_examples=1
         model: Обученная модель
         field: Word field
         test_iter: Итератор тестовых данных
-        device: Устройство
+        device: Устройство для вычислений. Если None, выбирается автоматически
         num_examples: Количество примеров для оценки
         
     Returns:
         dict: Результаты оценки
     """
+    if device is None:
+        device = get_device()
+    
     model.eval()
     
     generated_texts = []
@@ -230,7 +243,7 @@ def evaluate_model_on_test(model, field, test_iter, device='cpu', num_examples=1
     }
 
 
-def create_attention_examples(model, field, test_iter, device='cpu', num_examples=3):
+def create_attention_examples(model, field, test_iter, device=None, num_examples=3):
     """
     Создает примеры визуализации внимания (Задание 3).
     
@@ -238,12 +251,15 @@ def create_attention_examples(model, field, test_iter, device='cpu', num_example
         model: Обученная модель
         field: Word field
         test_iter: Итератор тестовых данных
-        device: Устройство
+        device: Устройство для вычислений. Если None, выбирается автоматически
         num_examples: Количество примеров
     """
-    model.eval()
+    if device is None:
+        device = get_device()
     
     os.makedirs('docs/attention_examples', exist_ok=True)
+    
+    model.eval()
     
     with torch.no_grad():
         for i, batch in enumerate(test_iter):
@@ -285,10 +301,13 @@ def create_attention_examples(model, field, test_iter, device='cpu', num_example
 
 def main():
     """Основная функция для оценки модели."""
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    print("Starting evaluation...")
+    
+    # Автоматический выбор устройства mps -> cuda -> cpu
+    device = get_device()
     print(f"Using device: {device}")
     
-    # Загрузка данных
+    # Загружаем данные и модель
     train_iter, test_iter, word_field = load_and_process_data(device=device)
     
     # Создание и загрузка модели

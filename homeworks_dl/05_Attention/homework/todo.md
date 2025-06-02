@@ -35,6 +35,7 @@
 - [x] Исправить размерности масок в MultiHeadedAttention
 - [x] Исправить тест Label Smoothing Loss
 - [x] Исправить тест Noam optimizer
+- [x] Унифицировать выбор device с приоритетом mps -> cuda -> cpu
 
 ## Финальная упаковка
 - [ ] Сохранить `best_model.pt`  

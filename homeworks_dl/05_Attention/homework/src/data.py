@@ -3,12 +3,13 @@ import pandas as pd
 import torch
 from torchtext.data import Field, Example, Dataset, BucketIterator
 from tqdm.auto import tqdm
+from . import get_device
 
 BOS_TOKEN = '<s>'
 EOS_TOKEN = '</s>'
 
 
-def load_and_process_data(csv_path='news.csv', train_ratio=0.85, min_freq=7, device='cpu'):
+def load_and_process_data(csv_path='news.csv', train_ratio=0.85, min_freq=7, device=None):
     """
     Загружает и обрабатывает данные для обучения модели суммаризации.
     
@@ -16,11 +17,14 @@ def load_and_process_data(csv_path='news.csv', train_ratio=0.85, min_freq=7, dev
         csv_path (str): Путь к CSV файлу с данными
         train_ratio (float): Доля данных для обучения
         min_freq (int): Минимальная частота слова для включения в словарь
-        device (str): Устройство для PyTorch
+        device (str/torch.device): Устройство для PyTorch. Если None, выбирается автоматически
     
     Returns:
         tuple: (train_iter, test_iter, word_field)
     """
+    if device is None:
+        device = get_device()
+    
     word_field = Field(tokenize='moses', init_token=BOS_TOKEN, eos_token=EOS_TOKEN, lower=True)
     fields = [('source', word_field), ('target', word_field)]
     
@@ -114,7 +118,7 @@ def convert_batch(batch, pad_idx=1):
 
 if __name__ == "__main__":
     # Тестовый запуск обработки данных
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    device = get_device()
     train_iter, test_iter, word_field = load_and_process_data(device=device)
     
     print("Data processing completed successfully!")

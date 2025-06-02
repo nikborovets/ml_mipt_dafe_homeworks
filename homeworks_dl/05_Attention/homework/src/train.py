@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 import numpy as np
 from rouge_score import rouge_scorer
-
-from .data import convert_batch
+import math
+from .data import load_and_process_data, convert_batch
 from .model import create_model
+from . import get_device
 
 
 class LabelSmoothingLoss(nn.Module):
@@ -315,11 +316,13 @@ def save_training_plot(history, save_path='training_plot.png'):
 
 def main():
     """Основная функция для запуска обучения."""
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    print("Starting training...")
+    
+    # Автоматический выбор устройства mps -> cuda -> cpu
+    device = get_device()
     print(f"Using device: {device}")
     
-    # Загрузка данных
-    from .data import load_and_process_data
+    # Загружаем данные
     train_iter, test_iter, word_field = load_and_process_data(device=device)
     
     # Создание модели
@@ -341,7 +344,6 @@ def main():
     )
     
     # Обучение
-    print("Starting training...")
     history = fit(
         model=model,
         criterion=criterion,
