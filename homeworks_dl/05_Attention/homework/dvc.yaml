@@ -1,0 +1,33 @@
+stages:
+  preprocess:
+    cmd: python src/data.py
+    deps:
+      - src/data.py
+      - news.csv
+    outs:
+      - data_processed/
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - src/model.py
+      - src/data.py
+      - news.csv
+    outs:
+      - best_model.pt
+      - training_plot.png
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - src/model.py
+      - src/data.py
+      - best_model.pt
+      - news.csv
+    outs:
+      - predictions_on_test.txt
+      - docs/attention_examples/
+    metrics:
+      - evaluation_results/rouge_scores.json 
