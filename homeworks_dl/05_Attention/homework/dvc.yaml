@@ -1,29 +1,33 @@
 stages:
   preprocess:
-    cmd: python src/data.py
+    cmd: python -m src.data
     deps:
       - src/data.py
+      - src/__init__.py
       - news.csv
     outs:
       - data_processed/
 
   train:
-    cmd: python src/train.py
+    cmd: python -m src.train
     deps:
       - src/train.py
       - src/model.py
       - src/data.py
+      - src/__init__.py
       - news.csv
     outs:
       - best_model.pt
       - training_plot.png
+      - runs/
 
   evaluate:
-    cmd: python src/evaluate.py
+    cmd: python -m src.evaluate
     deps:
       - src/evaluate.py
       - src/model.py
       - src/data.py
+      - src/__init__.py
       - best_model.pt
       - news.csv
     outs:

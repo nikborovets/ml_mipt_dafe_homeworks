@@ -14,11 +14,11 @@ preprocess:
 
 # Обучение модели
 train:
-	source .venv/bin/activate && python src/train.py
+	source .venv/bin/activate && python -m src.train
 
 # Оценка модели
 evaluate:
-	source .venv/bin/activate && python src/evaluate.py
+	source .venv/bin/activate && python -m src.evaluate
 
 # Запуск TensorBoard
 tensorboard:
