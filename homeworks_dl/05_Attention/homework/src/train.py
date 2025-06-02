@@ -266,6 +266,9 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
     Returns:
         dict: История обучения
     """
+    # Получаем устройство модели
+    device = next(model.parameters()).device
+    
     # Пытаемся загрузить последний чекпоинт
     start_epoch = 0
     history = {
@@ -279,7 +282,7 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
     if resume_from_checkpoint:
         latest_checkpoint = find_latest_checkpoint(checkpoint_dir)
         if latest_checkpoint:
-            start_epoch, history = load_checkpoint(latest_checkpoint, model, optimizer)
+            start_epoch, history = load_checkpoint(latest_checkpoint, model, optimizer, device)
     
     # Создаем TensorBoard writer
     if log_dir is None:
@@ -534,7 +537,7 @@ def save_checkpoint(model, optimizer, epoch, history, checkpoint_dir='checkpoint
     return checkpoint_path
 
 
-def load_checkpoint(checkpoint_path, model, optimizer):
+def load_checkpoint(checkpoint_path, model, optimizer, device=None):
     """
     Загружает чекпоинт обучения.
     
@@ -542,6 +545,7 @@ def load_checkpoint(checkpoint_path, model, optimizer):
         checkpoint_path: Путь к файлу чекпоинта
         model: Модель PyTorch
         optimizer: Оптимизатор (NoamOpt)
+        device: Устройство для загрузки (cuda/mps/cpu)
         
     Returns:
         tuple: (start_epoch, history)
@@ -557,7 +561,10 @@ def load_checkpoint(checkpoint_path, model, optimizer):
         }
     
     print(f"Loading checkpoint: {checkpoint_path}")
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    
+    # Используем переданное устройство или CPU как fallback
+    map_location = device if device is not None else 'cpu'
+    checkpoint = torch.load(checkpoint_path, map_location=map_location, weights_only=False)
     
     # Загружаем состояние модели
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -570,7 +577,7 @@ def load_checkpoint(checkpoint_path, model, optimizer):
     start_epoch = checkpoint['epoch'] + 1  # Начинаем со следующей эпохи
     history = checkpoint['history']
     
-    print(f"Checkpoint loaded from epoch {checkpoint['epoch']}")
+    print(f"Checkpoint loaded from epoch {checkpoint['epoch']} on device: {map_location}")
     print(f"Resuming training from epoch {start_epoch}")
     
     return start_epoch, history
@@ -744,7 +751,7 @@ def main():
     best_model_path = os.path.join(args.checkpoint_dir, 'best_model.pth')
     if os.path.exists(best_model_path):
         print(f"📥 Loading best model from {best_model_path}")
-        best_checkpoint = torch.load(best_model_path, map_location=device)
+        best_checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
         model.load_state_dict(best_checkpoint['model_state_dict'])
         
         # Сохраняем в стандартном формате

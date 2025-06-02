@@ -23,7 +23,6 @@ stages:
       - training_plot_random.png
       - model_info_pretrained.json
       - model_info_random.json
-      - checkpoints/
 
   evaluate:
     cmd: python -m src.evaluate

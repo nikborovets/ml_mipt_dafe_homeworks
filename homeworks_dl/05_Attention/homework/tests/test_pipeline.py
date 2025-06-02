@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.model import create_model, SharedEmbeddings, TransformerSummarizer
 from src.train import NoamOpt, save_checkpoint, load_checkpoint, find_latest_checkpoint, cleanup_old_checkpoints
+from src import get_device
 
 
 def test_create_model():
@@ -156,10 +157,13 @@ def test_checkpoint_functionality():
     import shutil
     from src.train import save_checkpoint, load_checkpoint, find_latest_checkpoint, cleanup_old_checkpoints, NoamOpt
     
+    # Получаем устройство
+    device = get_device()
+    
     # Создаем временную директорию
     with tempfile.TemporaryDirectory() as temp_dir:
         # Создаем модель и оптимизатор
-        model = create_model(vocab_size=100, d_model=64)
+        model = create_model(vocab_size=100, d_model=64).to(device)
         optimizer = NoamOpt(
             model_size=64, factor=1, warmup=100,
             optimizer=torch.optim.Adam(model.parameters(), lr=0.001)
@@ -177,24 +181,39 @@ def test_checkpoint_functionality():
         # Тест сохранения чекпоинта
         checkpoint_path = save_checkpoint(model, optimizer, epoch=1, history=history, checkpoint_dir=temp_dir)
         assert checkpoint_path.endswith('checkpoint_epoch_1.pth')
-        assert torch.load(checkpoint_path)['epoch'] == 1
+        checkpoint_data = torch.load(checkpoint_path, weights_only=False)
+        assert checkpoint_data['epoch'] == 1
         
         # Тест поиска последнего чекпоинта
         latest = find_latest_checkpoint(temp_dir)
         assert latest is not None
         assert 'latest_checkpoint.pth' in latest
         
-        # Тест загрузки чекпоинта
-        new_model = create_model(vocab_size=100, d_model=64)
+        # Тест загрузки чекпоинта с устройством
+        new_model = create_model(vocab_size=100, d_model=64).to(device)
         new_optimizer = NoamOpt(
             model_size=64, factor=1, warmup=100,
             optimizer=torch.optim.Adam(new_model.parameters(), lr=0.001)
         )
         
-        start_epoch, loaded_history = load_checkpoint(latest, new_model, new_optimizer)
+        # Тестируем загрузку с параметром device
+        start_epoch, loaded_history = load_checkpoint(latest, new_model, new_optimizer, device)
         assert start_epoch == 2  # Следующая эпоха после загруженной
         assert loaded_history['train_losses'] == [1.0, 0.8]
         assert new_optimizer._step == optimizer._step
+        
+        # Проверяем, что модель на правильном устройстве
+        model_device = next(new_model.parameters()).device
+        assert model_device.type == device.type  # Сравниваем только тип устройства
+        
+        # Тест загрузки без параметра device (должен работать с CPU fallback)
+        another_model = create_model(vocab_size=100, d_model=64)
+        another_optimizer = NoamOpt(
+            model_size=64, factor=1, warmup=100,
+            optimizer=torch.optim.Adam(another_model.parameters(), lr=0.001)
+        )
+        start_epoch_cpu, _ = load_checkpoint(latest, another_model, another_optimizer)
+        assert start_epoch_cpu == 2
         
         # Тест создания нескольких чекпоинтов
         for epoch in range(2, 6):
