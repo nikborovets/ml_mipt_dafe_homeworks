@@ -85,7 +85,7 @@ def test_model_graph_logging():
         
         # Создаем простую модель
         model = create_model(vocab_size=100, d_model=64, d_ff=128)
-        device = get_device()
+        device = torch.device('cpu')  # Принудительно используем CPU для избежания CUDA OOM
         model.to(device)
         
         # Создаем dummy входы
@@ -105,6 +105,10 @@ def test_model_graph_logging():
         # Проверяем, что граф был залогирован или хотя бы попытка была сделана
         assert os.path.exists(log_dir)
         # Не требуем обязательного успеха, так как логирование графа может зависеть от версии PyTorch
+        
+        # Очищаем CUDA кэш если используется
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def test_fit_function_with_tensorboard():

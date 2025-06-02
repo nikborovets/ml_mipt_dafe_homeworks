@@ -158,7 +158,7 @@ def test_checkpoint_functionality():
     from src.train import save_checkpoint, load_checkpoint, find_latest_checkpoint, cleanup_old_checkpoints, NoamOpt
     
     # Получаем устройство
-    device = get_device()
+    device = torch.device('cpu')  # Принудительно используем CPU для избежания CUDA OOM
     
     # Создаем временную директорию
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -225,6 +225,10 @@ def test_checkpoint_functionality():
         # Проверяем что остались только последние 2 + latest
         checkpoint_files = [f for f in os.listdir(temp_dir) if f.startswith('checkpoint_epoch_')]
         assert len(checkpoint_files) == 2  # Только последние 2
+        
+        # Очищаем CUDA кэш если используется
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def test_checkpoint_with_nonexistent_file():

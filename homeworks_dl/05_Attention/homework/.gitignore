@@ -140,3 +140,4 @@ best_model_pretrained.pt
 # /training_plot_pretrained.png
 # /model_info_pretrained.json
 # /predictions_on_test_pretrained.txt
+/data_processed
