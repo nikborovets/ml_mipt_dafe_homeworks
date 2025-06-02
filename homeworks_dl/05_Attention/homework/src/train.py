@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from .data import load_processed_data_iterators, convert_batch
-from .model import create_model
+from .model import create_model, create_model_with_pretrained_embeddings
 from . import get_device
 
 
@@ -390,11 +390,32 @@ def main():
     
     # Загружаем данные
     train_iter, test_iter, word_field = load_processed_data_iterators(device=device)
-    
-    # Создание модели
     vocab_size = len(word_field.vocab)
-    model = create_model(vocab_size=vocab_size)
+    
+    # Проверяем наличие предобученных эмбеддингов
+    fasttext_path = 'src/embeddings/cc.ru.300.bin'
+    use_pretrained = os.path.exists(fasttext_path)
+    
+    if use_pretrained:
+        print(f"✓ Found pretrained embeddings at {fasttext_path}")
+        print("Training with pretrained Russian FastText embeddings (Task 6)")
+        
+        # Создание модели с предобученными эмбеддингами (300d)
+        model = create_model_with_pretrained_embeddings(vocab_size, word_field, fasttext_path)
+        model_size = 300
+    else:
+        print("⚠ Pretrained embeddings not found. Using random embeddings.")
+        print("To use pretrained embeddings, run: python -m src.embeddings.download_embeddings")
+        
+        # Создание модели с обычными эмбеддингами (256d)
+        model = create_model(vocab_size=vocab_size, d_model=256)
+        model_size = 256
+    
     model.to(device)
+    
+    print(f"Model created with d_model={model_size}")
+    print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     
     # Label Smoothing Loss (Задание 5)
     criterion = LabelSmoothingLoss(
@@ -403,9 +424,9 @@ def main():
         smoothing=0.1
     )
     
-    # Оптимизатор
+    # Оптимизатор с учетом размерности модели
     optimizer = NoamOpt(
-        model_size=256, factor=2, warmup=4000,
+        model_size=model_size, factor=2, warmup=4000,
         optimizer=torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
     )
     
@@ -423,13 +444,45 @@ def main():
         field=word_field
     )
     
-    # Сохранение результатов
-    torch.save(model.state_dict(), 'best_model.pt')
-    save_training_plot(history, 'training_plot.png')
+    # Сохранение результатов с указанием типа эмбеддингов
+    model_suffix = "_pretrained" if use_pretrained else "_random"
+    torch.save(model.state_dict(), f'best_model{model_suffix}.pt')
+    save_training_plot(history, f'training_plot{model_suffix}.png')
+    
+    # Сохраняем информацию о модели
+    model_info = {
+        'use_pretrained': use_pretrained,
+        'model_size': model_size,
+        'vocab_size': vocab_size,
+        'fasttext_path': fasttext_path if use_pretrained else None,
+        'final_train_loss': history['train_losses'][-1] if history['train_losses'] else None,
+        'final_val_loss': history['val_losses'][-1] if history['val_losses'] else None,
+        'final_rouge': history['val_rouge'][-1] if history['val_rouge'] else None
+    }
+    
+    import json
+    with open(f'model_info{model_suffix}.json', 'w', encoding='utf-8') as f:
+        json.dump(model_info, f, indent=2, ensure_ascii=False)
     
     print("Training completed!")
+    print(f"Model type: {'Pretrained embeddings' if use_pretrained else 'Random embeddings'}")
+    print(f"Model saved as: best_model{model_suffix}.pt")
+    print(f"Training plot saved as: training_plot{model_suffix}.png")
+    print(f"Model info saved as: model_info{model_suffix}.json")
     print(f"TensorBoard logs saved to: {history['tensorboard_log_dir']}")
     print(f"Run 'tensorboard --logdir={history['tensorboard_log_dir']}' to view training progress")
+    
+    # Задание 6: Сравнение результатов
+    if use_pretrained:
+        print("\n" + "="*60)
+        print("TASK 6: Comparison with pretrained Russian embeddings")
+        print("="*60)
+        if model_info['final_rouge']:
+            print(f"Final ROUGE scores with pretrained embeddings:")
+            for metric, score in model_info['final_rouge'].items():
+                print(f"  {metric.upper()}: {score:.4f}")
+        print(f"Final validation loss: {model_info['final_val_loss']:.4f}")
+        print("\nTo compare with random embeddings, move/delete the FastText file and retrain.")
 
 
 if __name__ == "__main__":

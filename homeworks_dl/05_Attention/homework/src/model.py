@@ -4,18 +4,85 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import fasttext
+import io
+import os
+from pathlib import Path
 
 
 class SharedEmbeddings(nn.Module):
     """
     Общие эмбеддинги для энкодера, декодера и выходного слоя (Задание 4).
+    Поддерживает предобученные русские эмбеддинги FastText (Задание 6).
     """
-    def __init__(self, vocab_size, d_model):
+    def __init__(self, vocab_size, d_model, use_pretrained=False, fasttext_path=None, field=None):
         super().__init__()
         self.d_model = d_model
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        # Инициализация весов как в семинаре
-        nn.init.normal_(self.embedding.weight, mean=0, std=d_model**-0.5)
+        self.use_pretrained = use_pretrained
+        
+        if use_pretrained and fasttext_path and field:
+            print(f"Loading pretrained embeddings from {fasttext_path}...")
+            self.embedding = self._load_pretrained_embeddings(vocab_size, d_model, fasttext_path, field)
+            print("✓ Pretrained embeddings loaded successfully!")
+        else:
+            # Обычные рандомные эмбеддинги
+            self.embedding = nn.Embedding(vocab_size, d_model)
+            # Инициализация весов как в семинаре
+            nn.init.normal_(self.embedding.weight, mean=0, std=d_model**-0.5)
+    
+    def _load_pretrained_embeddings(self, vocab_size, d_model, fasttext_path, field):
+        """Загружает предобученные FastText эмбеддинги."""
+        # Проверяем существование файла
+        if not os.path.exists(fasttext_path):
+            print(f"Warning: FastText file {fasttext_path} not found. Using random embeddings.")
+            embedding = nn.Embedding(vocab_size, d_model)
+            nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
+            return embedding
+        
+        try:
+            # Загружаем модель FastText
+            ft_model = fasttext.load_model(fasttext_path)
+            
+            # Проверяем размерность
+            ft_dim = ft_model.get_dimension()
+            if ft_dim != d_model:
+                print(f"Warning: FastText dimension ({ft_dim}) != model dimension ({d_model})")
+                print("Using random embeddings instead.")
+                embedding = nn.Embedding(vocab_size, d_model)
+                nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
+                return embedding
+            
+            # Создаем матрицу эмбеддингов
+            embedding_matrix = torch.zeros(vocab_size, d_model)
+            found_words = 0
+            
+            # Заполняем матрицу для слов из словаря
+            for idx, word in enumerate(field.vocab.itos):
+                if idx >= vocab_size:
+                    break
+                try:
+                    # Получаем вектор слова
+                    vector = ft_model.get_word_vector(word)
+                    embedding_matrix[idx] = torch.tensor(vector, dtype=torch.float32)
+                    found_words += 1
+                except:
+                    # Если слово не найдено, используем случайный вектор
+                    embedding_matrix[idx] = torch.randn(d_model) * (d_model**-0.5)
+            
+            print(f"✓ Found embeddings for {found_words}/{vocab_size} words ({100*found_words/vocab_size:.1f}%)")
+            
+            # Создаем embedding слой с предзагруженными весами
+            embedding = nn.Embedding(vocab_size, d_model)
+            embedding.weight.data.copy_(embedding_matrix)
+            
+            return embedding
+            
+        except Exception as e:
+            print(f"Error loading FastText model: {e}")
+            print("Using random embeddings instead.")
+            embedding = nn.Embedding(vocab_size, d_model)
+            nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
+            return embedding
     
     def forward(self, x):
         """Применяет эмбеддинги с масштабированием."""
@@ -233,12 +300,15 @@ class Generator(nn.Module):
 class TransformerSummarizer(nn.Module):
     """Полная модель Transformer для суммаризации."""
     def __init__(self, source_vocab_size, target_vocab_size, d_model=256, d_ff=1024,
-                 blocks_count=4, heads_count=8, dropout_rate=0.1):
+                 blocks_count=4, heads_count=8, dropout_rate=0.1, use_pretrained=False, 
+                 fasttext_path=None, field=None):
         super().__init__()
         
         # Общие эмбеддинги для всех компонентов (Задание 4)
         assert source_vocab_size == target_vocab_size, "Используем один словарь для source и target"
-        self.shared_embeddings = SharedEmbeddings(source_vocab_size, d_model)
+        self.shared_embeddings = SharedEmbeddings(
+            source_vocab_size, d_model, use_pretrained, fasttext_path, field
+        )
         
         self.encoder = Encoder(self.shared_embeddings, d_model, d_ff, blocks_count, heads_count, dropout_rate)
         self.decoder = Decoder(self.shared_embeddings, d_model, d_ff, blocks_count, heads_count, dropout_rate)
@@ -258,17 +328,21 @@ class TransformerSummarizer(nn.Module):
         return self.decoder(target_inputs, encoder_output, source_mask, target_mask)
 
 
-def create_model(vocab_size, d_model=256, d_ff=1024, blocks_count=4, heads_count=8, dropout_rate=0.1):
+def create_model(vocab_size, d_model=256, d_ff=1024, blocks_count=4, heads_count=8, 
+                 dropout_rate=0.1, use_pretrained=False, fasttext_path=None, field=None):
     """
     Создает модель Transformer для суммаризации.
     
     Args:
         vocab_size (int): Размер словаря
-        d_model (int): Размерность модели
+        d_model (int): Размерность модели (должна быть 300 для FastText)
         d_ff (int): Размерность feed-forward слоя
         blocks_count (int): Количество блоков в энкодере и декодере
         heads_count (int): Количество голов в multi-head attention
         dropout_rate (float): Вероятность dropout
+        use_pretrained (bool): Использовать предобученные эмбеддинги (Задание 6)
+        fasttext_path (str): Путь к файлу FastText
+        field (torchtext.Field): Поле для доступа к словарю
         
     Returns:
         TransformerSummarizer: Модель для суммаризации
@@ -280,12 +354,40 @@ def create_model(vocab_size, d_model=256, d_ff=1024, blocks_count=4, heads_count
         d_ff=d_ff,
         blocks_count=blocks_count,
         heads_count=heads_count,
-        dropout_rate=dropout_rate
+        dropout_rate=dropout_rate,
+        use_pretrained=use_pretrained,
+        fasttext_path=fasttext_path,
+        field=field
     )
     
-    # Инициализация параметров
-    for p in model.parameters():
-        if p.dim() > 1:
+    # Инициализация параметров (кроме предзагруженных эмбеддингов)
+    for name, p in model.named_parameters():
+        if p.dim() > 1 and not (use_pretrained and 'embedding' in name):
             nn.init.xavier_uniform_(p)
     
-    return model 
+    return model
+
+
+def create_model_with_pretrained_embeddings(vocab_size, field, fasttext_path='src/embeddings/cc.ru.300.bin'):
+    """
+    Удобная функция для создания модели с предобученными русскими эмбеддингами (Задание 6).
+    
+    Args:
+        vocab_size (int): Размер словаря
+        field (torchtext.Field): Поле для доступа к словарю
+        fasttext_path (str): Путь к файлу FastText
+        
+    Returns:
+        TransformerSummarizer: Модель с предобученными эмбеддингами
+    """
+    return create_model(
+        vocab_size=vocab_size,
+        d_model=300,  # FastText размерность
+        d_ff=1024,
+        blocks_count=4,
+        heads_count=6,  # 300 должно делиться на количество голов
+        dropout_rate=0.1,
+        use_pretrained=True,
+        fasttext_path=fasttext_path,
+        field=field
+    ) 
