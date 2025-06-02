@@ -2,13 +2,15 @@
 import pytest
 import torch
 import torch.nn as nn
+import numpy as np
+import os
 
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.model import create_model, SharedEmbeddings, TransformerSummarizer
-from src.train import NoamOpt
+from src.train import NoamOpt, save_checkpoint, load_checkpoint, find_latest_checkpoint, cleanup_old_checkpoints
 
 
 def test_create_model():
@@ -145,4 +147,92 @@ def test_model_parameter_count():
     assert trainable_params == total_params  # Все параметры должны быть обучаемыми
     
     print(f"Total parameters: {total_params:,}")
-    print(f"Trainable parameters: {trainable_params:,}") 
+    print(f"Trainable parameters: {trainable_params:,}")
+
+
+def test_checkpoint_functionality():
+    """Тестируем функциональность чекпоинтов."""
+    import tempfile
+    import shutil
+    from src.train import save_checkpoint, load_checkpoint, find_latest_checkpoint, cleanup_old_checkpoints, NoamOpt
+    
+    # Создаем временную директорию
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Создаем модель и оптимизатор
+        model = create_model(vocab_size=100, d_model=64)
+        optimizer = NoamOpt(
+            model_size=64, factor=1, warmup=100,
+            optimizer=torch.optim.Adam(model.parameters(), lr=0.001)
+        )
+        
+        # Симулируем историю обучения
+        history = {
+            'train_losses': [1.0, 0.8],
+            'val_losses': [1.2, 0.9],
+            'train_rouge': [{'rouge1': 0.1}, {'rouge1': 0.2}],
+            'val_rouge': [{'rouge1': 0.15}, {'rouge1': 0.25}],
+            'tensorboard_log_dir': 'runs/test'
+        }
+        
+        # Тест сохранения чекпоинта
+        checkpoint_path = save_checkpoint(model, optimizer, epoch=1, history=history, checkpoint_dir=temp_dir)
+        assert checkpoint_path.endswith('checkpoint_epoch_1.pth')
+        assert torch.load(checkpoint_path)['epoch'] == 1
+        
+        # Тест поиска последнего чекпоинта
+        latest = find_latest_checkpoint(temp_dir)
+        assert latest is not None
+        assert 'latest_checkpoint.pth' in latest
+        
+        # Тест загрузки чекпоинта
+        new_model = create_model(vocab_size=100, d_model=64)
+        new_optimizer = NoamOpt(
+            model_size=64, factor=1, warmup=100,
+            optimizer=torch.optim.Adam(new_model.parameters(), lr=0.001)
+        )
+        
+        start_epoch, loaded_history = load_checkpoint(latest, new_model, new_optimizer)
+        assert start_epoch == 2  # Следующая эпоха после загруженной
+        assert loaded_history['train_losses'] == [1.0, 0.8]
+        assert new_optimizer._step == optimizer._step
+        
+        # Тест создания нескольких чекпоинтов
+        for epoch in range(2, 6):
+            save_checkpoint(model, optimizer, epoch=epoch, history=history, checkpoint_dir=temp_dir)
+        
+        # Тест очистки старых чекпоинтов
+        cleanup_old_checkpoints(temp_dir, keep_last=2)
+        
+        # Проверяем что остались только последние 2 + latest
+        checkpoint_files = [f for f in os.listdir(temp_dir) if f.startswith('checkpoint_epoch_')]
+        assert len(checkpoint_files) == 2  # Только последние 2
+
+
+def test_checkpoint_with_nonexistent_file():
+    """Тестируем загрузку несуществующего чекпоинта."""
+    from src.train import load_checkpoint, NoamOpt
+    
+    model = create_model(vocab_size=100, d_model=64)
+    optimizer = NoamOpt(
+        model_size=64, factor=1, warmup=100,
+        optimizer=torch.optim.Adam(model.parameters(), lr=0.001)
+    )
+    
+    start_epoch, history = load_checkpoint('/nonexistent/path.pth', model, optimizer)
+    assert start_epoch == 0
+    assert history['train_losses'] == []
+    assert history['val_losses'] == []
+
+
+def test_find_latest_checkpoint_empty_dir():
+    """Тестируем поиск чекпоинта в пустой директории."""
+    import tempfile
+    from src.train import find_latest_checkpoint
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        latest = find_latest_checkpoint(temp_dir)
+        assert latest is None
+    
+    # Тест с несуществующей директорией
+    latest = find_latest_checkpoint('/nonexistent/dir')
+    assert latest is None 

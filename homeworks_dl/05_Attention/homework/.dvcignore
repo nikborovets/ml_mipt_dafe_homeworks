@@ -1,3 +1,11 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Игнорируем логи TensorBoard
+runs/
+
+# Временные файлы
+*.tmp
+*.swp
+.DS_Store

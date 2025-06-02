@@ -9,7 +9,7 @@ stages:
       - data_processed/
 
   train:
-    cmd: python -m src.train
+    cmd: python -m src.train --epochs 3 --no-resume
     deps:
       - src/train.py
       - src/model.py
@@ -17,9 +17,13 @@ stages:
       - src/__init__.py
       - data_processed/
     outs:
-      - best_model.pt
-      - training_plot.png
-      - runs/
+      - best_model_pretrained.pt
+      - best_model_random.pt
+      - training_plot_pretrained.png
+      - training_plot_random.png
+      - model_info_pretrained.json
+      - model_info_random.json
+      - checkpoints/
 
   evaluate:
     cmd: python -m src.evaluate
@@ -28,7 +32,7 @@ stages:
       - src/model.py
       - src/data.py
       - src/__init__.py
-      - best_model.pt
+      - best_model_pretrained.pt
       - data_processed/
     outs:
       - predictions_on_test.txt

@@ -18,6 +18,6 @@ stages:
     outs:
     - path: data_processed/
       hash: md5
-      md5: f84b73630e3532d02e72a169e6f386cc.dir
-      size: 6732753
+      md5: 061dc8b3f395e6d984a3b6dbf0e5f6e2.dir
+      size: 6724967
       nfiles: 2
