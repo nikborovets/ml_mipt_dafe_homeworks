@@ -9,7 +9,7 @@ stages:
       - data_processed/
 
   train:
-    cmd: python -m src.train --epochs 3 --no-resume
+    cmd: python -m src.train --epochs 1 --no-resume
     deps:
       - src/train.py
       - src/model.py
