@@ -8,8 +8,9 @@ stages:
     outs:
       - data_processed/
 
-  train:
-    cmd: python -m src.train --epochs 1 --no-resume
+  train_pretrained:
+    # cmd: python -m src.train --epochs 1 --no-resume
+    cmd: python -m src.train --epochs 1
     deps:
       - src/train.py
       - src/model.py
@@ -18,14 +19,24 @@ stages:
       - data_processed/
     outs:
       - best_model_pretrained.pt
-      - best_model_random.pt
       - training_plot_pretrained.png
-      - training_plot_random.png
       - model_info_pretrained.json
+
+  train_random:
+    cmd: python -m src.train --epochs 1 --no-resume --no-pretrained
+    deps:
+      - src/train.py
+      - src/model.py
+      - src/data.py
+      - src/__init__.py
+      - data_processed/
+    outs:
+      - best_model_random.pt
+      - training_plot_random.png
       - model_info_random.json
 
-  evaluate:
-    cmd: python -m src.evaluate
+  evaluate_pretrained:
+    cmd: python -m src.evaluate --model-path best_model_pretrained.pt --output-suffix _pretrained
     deps:
       - src/evaluate.py
       - src/model.py
@@ -34,7 +45,22 @@ stages:
       - best_model_pretrained.pt
       - data_processed/
     outs:
-      - predictions_on_test.txt
-      - docs/attention_examples/
+      - predictions_on_test_pretrained.txt
+      - docs/attention_examples_pretrained/
     metrics:
-      - evaluation_results/rouge_scores.json 
+      - evaluation_results/rouge_scores_pretrained.json
+
+  evaluate_random:
+    cmd: python -m src.evaluate --model-path best_model_random.pt --output-suffix _random
+    deps:
+      - src/evaluate.py
+      - src/model.py
+      - src/data.py
+      - src/__init__.py
+      - best_model_random.pt
+      - data_processed/
+    outs:
+      - predictions_on_test_random.txt
+      # - docs/attention_examples_random/
+    metrics:
+      - evaluation_results/rouge_scores_random.json 

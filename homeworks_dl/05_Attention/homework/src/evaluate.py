@@ -9,9 +9,10 @@ import os
 from rouge_score import rouge_scorer
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+import argparse
 
 from .data import load_processed_data_iterators, make_mask, subsequent_mask
-from .model import create_model
+from .model import create_model, create_model_with_pretrained_embeddings
 from .train import compute_rouge_scores
 from . import get_device
 
@@ -245,9 +246,9 @@ def evaluate_model_on_test(model, field, test_iter, device=None, num_examples=10
     }
 
 
-def create_attention_examples(model, field, test_iter, device=None, num_examples=3):
+def create_attention_examples_with_suffix(model, field, test_iter, device=None, num_examples=3, output_dir='docs/attention_examples'):
     """
-    Создает примеры визуализации внимания (Задание 3).
+    Создает примеры визуализации внимания с пользовательской директорией вывода.
     
     Args:
         model: Обученная модель
@@ -255,11 +256,12 @@ def create_attention_examples(model, field, test_iter, device=None, num_examples
         test_iter: Итератор тестовых данных
         device: Устройство для вычислений. Если None, выбирается автоматически
         num_examples: Количество примеров
+        output_dir: Директория для сохранения результатов
     """
     if device is None:
         device = get_device()
     
-    os.makedirs('docs/attention_examples', exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
     model.eval()
     
@@ -291,7 +293,7 @@ def create_attention_examples(model, field, test_iter, device=None, num_examples
             # Создаем визуализации для разных слоев и голов
             for layer_idx in range(min(2, len(attention_weights))):
                 for head_idx in range(min(2, attention_weights[layer_idx].shape[1])):
-                    save_path = f'docs/attention_examples/example_{i+1}_layer_{layer_idx}_head_{head_idx}.png'
+                    save_path = f'{output_dir}/example_{i+1}_layer_{layer_idx}_head_{head_idx}.png'
                     plot_attention(attention_weights, src_tokens, tgt_tokens, 
                                  layer_idx, head_idx, save_path)
             
@@ -301,21 +303,63 @@ def create_attention_examples(model, field, test_iter, device=None, num_examples
             print()
 
 
+def create_attention_examples(model, field, test_iter, device=None, num_examples=3):
+    """
+    Создает примеры визуализации внимания (Задание 3).
+    
+    Args:
+        model: Обученная модель
+        field: Word field
+        test_iter: Итератор тестовых данных
+        device: Устройство для вычислений. Если None, выбирается автоматически
+        num_examples: Количество примеров
+    """
+    return create_attention_examples_with_suffix(model, field, test_iter, device, num_examples, 'docs/attention_examples')
+
+
 def main():
     """Основная функция для оценки модели."""
+    # Парсер аргументов командной строки
+    parser = argparse.ArgumentParser(description='Evaluate Transformer model for text summarization')
+    parser.add_argument('--model-path', type=str, default='best_model.pt', 
+                       help='Path to the model file (default: best_model.pt)')
+    parser.add_argument('--output-suffix', type=str, default='', 
+                       help='Suffix for output files (e.g., _pretrained, _random)')
+    
+    args = parser.parse_args()
+    
     print("Starting evaluation...")
+    print(f"Model path: {args.model_path}")
+    print(f"Output suffix: {args.output_suffix}")
     
     # Автоматический выбор устройства mps -> cuda -> cpu
     device = get_device()
     print(f"Using device: {device}")
+    
+    # Проверяем существование файла модели
+    if not os.path.exists(args.model_path):
+        print(f"❌ Model file not found: {args.model_path}")
+        return
     
     # Загружаем данные и модель
     train_iter, test_iter, word_field = load_processed_data_iterators(device=device)
     
     # Создание и загрузка модели
     vocab_size = len(word_field.vocab)
-    model = create_model(vocab_size=vocab_size)
-    model.load_state_dict(torch.load('best_model.pt', map_location=device))
+    
+    # Определяем тип модели по пути
+    if 'pretrained' in args.model_path:
+        print("Loading model with pretrained embeddings...")
+        if os.path.exists('src/embeddings/cc.ru.300.bin'):
+            model = create_model_with_pretrained_embeddings(vocab_size, word_field, 'src/embeddings/cc.ru.300.bin')
+        else:
+            print(f"⚠ Pretrained embeddings not found at src/embeddings/cc.ru.300.bin, using regular model")
+            model = create_model(vocab_size=vocab_size)
+    else:
+        print("Loading model with random embeddings...")
+        model = create_model(vocab_size=vocab_size)
+    
+    model.load_state_dict(torch.load(args.model_path, map_location=device, weights_only=False))
     model.to(device)
     model.eval()
     
@@ -331,7 +375,7 @@ def main():
     
     # Создаем TensorBoard writer для логирования результатов оценки
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    eval_log_dir = f"runs/evaluation_{timestamp}"
+    eval_log_dir = f"runs/evaluation{args.output_suffix}_{timestamp}"
     writer = SummaryWriter(eval_log_dir)
     
     # Логируем результаты оценки
@@ -349,7 +393,8 @@ def main():
     print(f"Evaluation results logged to TensorBoard: {eval_log_dir}")
     
     # Сохранение примеров предсказаний
-    with open('predictions_on_test.txt', 'w', encoding='utf-8') as f:
+    predictions_file = f'predictions_on_test{args.output_suffix}.txt'
+    with open(predictions_file, 'w', encoding='utf-8') as f:
         for i, example in enumerate(results['examples']):
             f.write(f"Example {i+1}:\n")
             f.write(f"Source: {example['source']}\n")
@@ -357,11 +402,22 @@ def main():
             f.write(f"Generated: {example['generated']}\n")
             f.write("-" * 80 + "\n")
     
-    print("Predictions saved to predictions_on_test.txt")
+    print(f"Predictions saved to {predictions_file}")
+    
+    # Сохранение метрик для DVC
+    os.makedirs('evaluation_results', exist_ok=True)
+    metrics_file = f'evaluation_results/rouge_scores{args.output_suffix}.json'
+    import json
+    with open(metrics_file, 'w', encoding='utf-8') as f:
+        json.dump(results['rouge_scores'], f, indent=2, ensure_ascii=False)
+    
+    print(f"ROUGE metrics saved to {metrics_file}")
     
     # Создание примеров визуализации внимания
     print("Creating attention visualization examples...")
-    create_attention_examples(model, word_field, test_iter, device, num_examples=3)
+    attention_dir = f'docs/attention_examples{args.output_suffix}'
+    create_attention_examples_with_suffix(model, word_field, test_iter, device, 
+                                        num_examples=3, output_dir=attention_dir)
     
     # Тестирование на собственных примерах
     print("\nTesting on custom examples:")
@@ -374,7 +430,7 @@ def main():
     ]
     
     # Создаем отдельный writer для пользовательских примеров
-    custom_writer = SummaryWriter(f"runs/custom_examples_{timestamp}")
+    custom_writer = SummaryWriter(f"runs/custom_examples{args.output_suffix}_{timestamp}")
     
     for i, example in enumerate(custom_examples):
         generated, _ = generate_summary(model, word_field, example, device=device)
@@ -387,7 +443,7 @@ def main():
         custom_writer.add_text(f'Custom_Example_{i+1}/Generated', generated, 0)
     
     custom_writer.close()
-    print(f"\nCustom examples logged to TensorBoard: runs/custom_examples_{timestamp}")
+    print(f"\nCustom examples logged to TensorBoard: runs/custom_examples{args.output_suffix}_{timestamp}")
     print(f"Run 'tensorboard --logdir=runs' to view all logs")
 
 

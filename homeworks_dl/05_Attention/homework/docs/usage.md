@@ -145,7 +145,74 @@ make dvc-init
 Запуск DVC пайплайна:
 
 ```bash
+# Полный пайплайн (все стадии)
 make dvc-repro
+
+# Только обучение с предобученными эмбеддингами
+make train-pretrained
+
+# Только обучение со случайными эмбеддингами  
+make train-random
+
+# Оценка с предобученными эмбеддингами
+make evaluate-pretrained
+
+# Оценка со случайными эмбеддингами
+make evaluate-random
+
+# Быстрый пайплайн (предобученные + оценка)
+make pipeline-fast
+
+# Полный пайплайн (оба типа обучения + оценка)
+make pipeline
+```
+
+### Частичные пайплайны
+
+```bash
+# Только предобученные эмбеддинги (preprocess → train_pretrained → evaluate_pretrained)
+make pipeline-pretrained
+
+# Только случайные эмбеддинги (preprocess → train_random → evaluate_random)
+make pipeline-random
+
+# Быстрый пайплайн (через отдельные make команды)
+make pipeline-fast
+```
+
+### Прямые DVC команды для частичных пайплайнов
+
+```bash
+# Автоматический запуск всех зависимостей для предобученных
+dvc repro -s evaluate_pretrained
+
+# Автоматический запуск всех зависимостей для случайных
+dvc repro -s evaluate_random
+
+# Принудительный перезапуск (игнорировать кэш)
+dvc repro -s evaluate_pretrained --force
+```
+
+### Отдельные DVC стадии
+
+```bash
+# Обработка данных
+dvc repro -s preprocess
+
+# Обучение с предобученными эмбеддингами
+dvc repro -s train_pretrained
+
+# Обучение со случайными эмбеддингами
+dvc repro -s train_random
+
+# Оценка модели с предобученными эмбеддингами
+dvc repro -s evaluate_pretrained
+
+# Оценка модели со случайными эмбеддингами
+dvc repro -s evaluate_random
+
+# Весь пайплайн
+dvc repro
 ```
 
 ## Мониторинг с TensorBoard
@@ -442,3 +509,14 @@ python -m pytest tests/test_pipeline.py::test_checkpoint_functionality -v
 - ✅ **TensorBoard интеграция** - мониторинг метрик в реальном времени
 - ✅ **Автоматический выбор устройства** - mps → cuda → cpu
 - ✅ **Полное тестирование** - 48 unit-тестов с покрытием всего функционала 
+
+### Ручная оценка моделей
+
+```bash
+# Оценка конкретной модели
+python -m src.evaluate --model-path best_model_pretrained.pt --output-suffix _pretrained
+python -m src.evaluate --model-path best_model_random.pt --output-suffix _random
+
+# Оценка без суффикса (стандартные имена файлов)
+python -m src.evaluate --model-path best_model.pt
+``` 

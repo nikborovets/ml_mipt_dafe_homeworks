@@ -21,3 +21,83 @@ stages:
       md5: 83a08629b069f2034fb2bb53e6883f0d.dir
       size: 6736541
       nfiles: 2
+  train_pretrained:
+    cmd: python -m src.train --epochs 1
+    deps:
+    - path: data_processed/
+      hash: md5
+      md5: 83a08629b069f2034fb2bb53e6883f0d.dir
+      size: 6736541
+      nfiles: 2
+    - path: src/__init__.py
+      hash: md5
+      md5: b93a891a0534ea3bb0af7bc1487c5007
+      size: 477
+    - path: src/data.py
+      hash: md5
+      md5: 40ee36c39e455c420c3f620e2ddb238b
+      size: 8123
+    - path: src/model.py
+      hash: md5
+      md5: 4b92608ebb69130553b9d2a727a6a26b
+      size: 16846
+    - path: src/train.py
+      hash: md5
+      md5: 01139c9d23a6a3ee8a87b1cc105cd740
+      size: 35801
+    outs:
+    - path: best_model_pretrained.pt
+      hash: md5
+      md5: cd33fbceec8787c87b76815aaf158ce6
+      size: 88536029
+    - path: model_info_pretrained.json
+      hash: md5
+      md5: e4c30a643c81cf042bea80a1f20b5707
+      size: 656
+    - path: training_plot_pretrained.png
+      hash: md5
+      md5: 7fbf062101f16744e524f5bf37a95393
+      size: 252311
+  evaluate_pretrained:
+    cmd: python -m src.evaluate --model-path best_model_pretrained.pt --output-suffix
+      _pretrained
+    deps:
+    - path: best_model_pretrained.pt
+      hash: md5
+      md5: cd33fbceec8787c87b76815aaf158ce6
+      size: 88536029
+    - path: data_processed/
+      hash: md5
+      md5: 83a08629b069f2034fb2bb53e6883f0d.dir
+      size: 6736541
+      nfiles: 2
+    - path: src/__init__.py
+      hash: md5
+      md5: b93a891a0534ea3bb0af7bc1487c5007
+      size: 477
+    - path: src/data.py
+      hash: md5
+      md5: 40ee36c39e455c420c3f620e2ddb238b
+      size: 8123
+    - path: src/evaluate.py
+      hash: md5
+      md5: f49329abcde7368414aa4359da7bbebc
+      size: 19715
+    - path: src/model.py
+      hash: md5
+      md5: 4b92608ebb69130553b9d2a727a6a26b
+      size: 16846
+    outs:
+    - path: docs/attention_examples_pretrained/
+      hash: md5
+      md5: 81304231c1a93d7a780f5085e6fe0b3c.dir
+      size: 4321324
+      nfiles: 12
+    - path: evaluation_results/rouge_scores_pretrained.json
+      hash: md5
+      md5: 654d97cace4b5f304f2f3997f67e7a39
+      size: 53
+    - path: predictions_on_test_pretrained.txt
+      hash: md5
+      md5: 86c8a9f6b01041b2dcf677add9560268
+      size: 14331

@@ -136,3 +136,7 @@ BorovetsNV-hw03.zip
 data_processed/
 cc.ru.300*
 checkpoints/
+best_model_pretrained.pt
+/training_plot_pretrained.png
+/model_info_pretrained.json
+/predictions_on_test_pretrained.txt
