@@ -1,4 +1,4 @@
-.PHONY: install test train evaluate clean package
+.PHONY: install test train evaluate clean package tensorboard
 
 # Установка зависимостей
 install:
@@ -20,6 +20,12 @@ train:
 evaluate:
 	source .venv/bin/activate && python src/evaluate.py
 
+# Запуск TensorBoard
+tensorboard:
+	@echo "Starting TensorBoard server..."
+	@echo "Open http://localhost:6006 in your browser"
+	source .venv/bin/activate && tensorboard --logdir=runs --port=6006
+
 # Полный пайплайн
 pipeline: preprocess train evaluate
 
@@ -28,6 +34,7 @@ clean:
 	rm -rf __pycache__ src/__pycache__ tests/__pycache__
 	rm -rf .pytest_cache
 	rm -f *.pyc src/*.pyc tests/*.pyc
+	rm -rf runs  # Очистка TensorBoard логов
 
 # Создание архива для сдачи
 package:

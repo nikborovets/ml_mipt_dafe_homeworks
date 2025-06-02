@@ -7,6 +7,8 @@ import numpy as np
 from tqdm.auto import tqdm
 import os
 from rouge_score import rouge_scorer
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 from .data import load_and_process_data, make_mask, subsequent_mask
 from .model import create_model
@@ -327,6 +329,25 @@ def main():
     print(f"ROUGE-2: {results['rouge_scores']['rouge2']:.4f}")
     print(f"ROUGE-L: {results['rouge_scores']['rougeL']:.4f}")
     
+    # Создаем TensorBoard writer для логирования результатов оценки
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    eval_log_dir = f"runs/evaluation_{timestamp}"
+    writer = SummaryWriter(eval_log_dir)
+    
+    # Логируем результаты оценки
+    writer.add_scalar('Evaluation/ROUGE-1', results['rouge_scores']['rouge1'], 0)
+    writer.add_scalar('Evaluation/ROUGE-2', results['rouge_scores']['rouge2'], 0)
+    writer.add_scalar('Evaluation/ROUGE-L', results['rouge_scores']['rougeL'], 0)
+    
+    # Добавляем примеры текстов
+    for i, example in enumerate(results['examples'][:3]):  # Первые 3 примера
+        writer.add_text(f'Example_{i+1}/Source', example['source'], 0)
+        writer.add_text(f'Example_{i+1}/Reference', example['reference'], 0)
+        writer.add_text(f'Example_{i+1}/Generated', example['generated'], 0)
+    
+    writer.close()
+    print(f"Evaluation results logged to TensorBoard: {eval_log_dir}")
+    
     # Сохранение примеров предсказаний
     with open('predictions_on_test.txt', 'w', encoding='utf-8') as f:
         for i, example in enumerate(results['examples']):
@@ -352,11 +373,22 @@ def main():
         "Российская сборная по футболу одержала победу в товарищеском матче против команды Бразилии со счетом 2:1."
     ]
     
+    # Создаем отдельный writer для пользовательских примеров
+    custom_writer = SummaryWriter(f"runs/custom_examples_{timestamp}")
+    
     for i, example in enumerate(custom_examples):
         generated, _ = generate_summary(model, word_field, example, device=device)
         print(f"\nCustom Example {i+1}:")
         print(f"Source: {example}")
         print(f"Generated: {generated}")
+        
+        # Логируем в TensorBoard
+        custom_writer.add_text(f'Custom_Example_{i+1}/Source', example, 0)
+        custom_writer.add_text(f'Custom_Example_{i+1}/Generated', generated, 0)
+    
+    custom_writer.close()
+    print(f"\nCustom examples logged to TensorBoard: runs/custom_examples_{timestamp}")
+    print(f"Run 'tensorboard --logdir=runs' to view all logs")
 
 
 if __name__ == "__main__":

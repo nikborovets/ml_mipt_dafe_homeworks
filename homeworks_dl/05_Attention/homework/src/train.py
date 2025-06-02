@@ -7,6 +7,9 @@ from tqdm.auto import tqdm
 import numpy as np
 from rouge_score import rouge_scorer
 import math
+import os
+from datetime import datetime
+from torch.utils.tensorboard import SummaryWriter
 from .data import load_and_process_data, convert_batch
 from .model import create_model
 from . import get_device
@@ -106,7 +109,7 @@ def compute_rouge_scores(generated_texts, reference_texts):
     }
 
 
-def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None):
+def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None, writer=None, epoch=None):
     """
     Выполняет одну эпоху обучения или валидации.
     
@@ -117,6 +120,8 @@ def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None)
         optimizer: Оптимизатор (None для валидации)
         name: Название эпохи для логирования
         field: Word field для декодирования текстов
+        writer: TensorBoard writer для логирования метрик
+        epoch: Номер эпохи для TensorBoard
         
     Returns:
         tuple: (average_loss, rouge_scores)
@@ -156,6 +161,14 @@ def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None)
             epoch_loss += loss.item()
             total_tokens += n_tokens
             
+            # Логирование в TensorBoard каждые 100 батчей
+            if writer is not None and epoch is not None and i % 100 == 0:
+                step = epoch * len(data_iter) + i
+                current_loss = loss.item() / n_tokens if n_tokens > 0 else 0
+                mode = 'train' if is_train else 'val'
+                writer.add_scalar(f'Loss/{mode}_batch', current_loss, step)
+                writer.add_scalar(f'Learning_Rate', optimizer._rate if is_train and optimizer else 0, step)
+            
             # Для ROUGE метрик (берем только первые несколько батчей, чтобы не замедлять)
             if i < 5 and field is not None:
                 # Декодируем тексты для ROUGE
@@ -184,10 +197,21 @@ def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None)
         rouge_scores = compute_rouge_scores(generated_texts, reference_texts)
     
     avg_loss = epoch_loss / total_tokens if total_tokens > 0 else 0
+    
+    # Логирование эпохи в TensorBoard
+    if writer is not None and epoch is not None:
+        mode = 'train' if is_train else 'val'
+        writer.add_scalar(f'Loss/{mode}_epoch', avg_loss, epoch)
+        
+        if rouge_scores:
+            writer.add_scalar(f'ROUGE/{mode}_rouge1', rouge_scores.get('rouge1', 0), epoch)
+            writer.add_scalar(f'ROUGE/{mode}_rouge2', rouge_scores.get('rouge2', 0), epoch)
+            writer.add_scalar(f'ROUGE/{mode}_rougeL', rouge_scores.get('rougeL', 0), epoch)
+    
     return avg_loss, rouge_scores
 
 
-def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, field=None):
+def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, field=None, log_dir=None):
     """
     Обучает модель.
     
@@ -199,14 +223,43 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         epochs_count: Количество эпох
         val_iter: Итератор валидационных данных
         field: Word field для декодирования
+        log_dir: Директория для логов TensorBoard
         
     Returns:
         dict: История обучения
     """
+    # Создаем TensorBoard writer
+    if log_dir is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = f"runs/transformer_summarization_{timestamp}"
+    
+    writer = SummaryWriter(log_dir)
+    print(f"TensorBoard logs saved to: {log_dir}")
+    print(f"Run 'tensorboard --logdir={log_dir}' to view logs")
+    
     train_losses = []
     val_losses = []
     train_rouge = []
     val_rouge = []
+    
+    # Логируем архитектуру модели
+    try:
+        # Создаем dummy input для визуализации графа модели
+        vocab_size = len(field.vocab)
+        dummy_src = torch.randint(1, vocab_size, (2, 10))
+        dummy_tgt = torch.randint(1, vocab_size, (2, 8))
+        dummy_src_mask = torch.ones(2, 1, 10).bool()
+        dummy_tgt_mask = torch.ones(2, 1, 8).bool()
+        
+        device = next(model.parameters()).device
+        dummy_src = dummy_src.to(device)
+        dummy_tgt = dummy_tgt.to(device)
+        dummy_src_mask = dummy_src_mask.to(device)
+        dummy_tgt_mask = dummy_tgt_mask.to(device)
+        
+        writer.add_graph(model, (dummy_src, dummy_tgt, dummy_src_mask, dummy_tgt_mask))
+    except Exception as e:
+        print(f"Could not log model graph: {e}")
     
     for epoch in range(epochs_count):
         print(f"\nEpoch {epoch + 1}/{epochs_count}")
@@ -214,7 +267,8 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         # Обучение
         train_loss, train_rouge_scores = do_epoch(
             model, criterion, train_iter, optimizer, 
-            name=f"Train Epoch {epoch + 1}", field=field
+            name=f"Train Epoch {epoch + 1}", field=field,
+            writer=writer, epoch=epoch
         )
         train_losses.append(train_loss)
         train_rouge.append(train_rouge_scores)
@@ -229,7 +283,8 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         if val_iter is not None:
             val_loss, val_rouge_scores = do_epoch(
                 model, criterion, val_iter, 
-                name=f"Val Epoch {epoch + 1}", field=field
+                name=f"Val Epoch {epoch + 1}", field=field,
+                writer=writer, epoch=epoch
             )
             val_losses.append(val_loss)
             val_rouge.append(val_rouge_scores)
@@ -239,12 +294,23 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
                 print(f"Val ROUGE-1: {val_rouge_scores.get('rouge1', 0):.4f}, "
                       f"ROUGE-2: {val_rouge_scores.get('rouge2', 0):.4f}, "
                       f"ROUGE-L: {val_rouge_scores.get('rougeL', 0):.4f}")
+        
+        # Логируем параметры модели (гистограммы весов)
+        if epoch % 5 == 0:  # Каждые 5 эпох
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    writer.add_histogram(f'Parameters/{name}', param, epoch)
+                    if param.grad is not None:
+                        writer.add_histogram(f'Gradients/{name}', param.grad, epoch)
+    
+    writer.close()
     
     return {
         'train_losses': train_losses,
         'val_losses': val_losses,
         'train_rouge': train_rouge,
-        'val_rouge': val_rouge
+        'val_rouge': val_rouge,
+        'tensorboard_log_dir': log_dir
     }
 
 
@@ -343,6 +409,9 @@ def main():
         optimizer=torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
     )
     
+    # Создаем директорию для TensorBoard логов
+    os.makedirs('runs', exist_ok=True)
+    
     # Обучение
     history = fit(
         model=model,
@@ -359,6 +428,8 @@ def main():
     save_training_plot(history, 'training_plot.png')
     
     print("Training completed!")
+    print(f"TensorBoard logs saved to: {history['tensorboard_log_dir']}")
+    print(f"Run 'tensorboard --logdir={history['tensorboard_log_dir']}' to view training progress")
 
 
 if __name__ == "__main__":

@@ -116,6 +116,43 @@ make dvc-init
 make dvc-repro
 ```
 
+## Мониторинг с TensorBoard
+
+### Запуск TensorBoard сервера
+
+```bash
+make tensorboard
+```
+
+Затем откройте браузер и перейдите по адресу: http://localhost:6006
+
+### Что логируется в TensorBoard
+
+**Во время обучения (`src/train.py`):**
+- `Loss/train_epoch` - потери на обучающей выборке по эпохам
+- `Loss/val_epoch` - потери на валидационной выборке по эпохам  
+- `Loss/train_batch` - потери по батчам (каждые 100 батчей)
+- `ROUGE/train_rouge1`, `ROUGE/train_rouge2`, `ROUGE/train_rougeL` - ROUGE метрики на обучении
+- `ROUGE/val_rouge1`, `ROUGE/val_rouge2`, `ROUGE/val_rougeL` - ROUGE метрики на валидации
+- `Learning_Rate` - изменение learning rate по шагам
+- `Parameters/*` - гистограммы весов модели (каждые 5 эпох)
+- `Gradients/*` - гистограммы градиентов (каждые 5 эпох)
+- Граф модели для визуализации архитектуры
+
+**Во время оценки (`src/evaluate.py`):**
+- `Evaluation/ROUGE-1`, `Evaluation/ROUGE-2`, `Evaluation/ROUGE-L` - финальные ROUGE метрики
+- `Example_*/Source`, `Example_*/Reference`, `Example_*/Generated` - примеры текстов
+- `Custom_Example_*/Source`, `Custom_Example_*/Generated` - результаты на пользовательских примерах
+
+### Структура логов
+
+```
+runs/
+├── transformer_summarization_YYYYMMDD_HHMMSS/  # Логи обучения
+├── evaluation_YYYYMMDD_HHMMSS/                 # Логи оценки
+└── custom_examples_YYYYMMDD_HHMMSS/             # Логи пользовательских примеров
+```
+
 ## Реализованные задания
 
 ### Задание 1: Генератор суммаризации
