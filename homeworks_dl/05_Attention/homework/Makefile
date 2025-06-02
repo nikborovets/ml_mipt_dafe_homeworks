@@ -74,3 +74,7 @@ dvc-repro:
 # Инициализация DVC
 dvc-init:
 	source .venv/bin/activate && dvc init 
+
+cluster-dvc-run:
+	dvc repro -s train_pretrained 
+	dvc repro -s evaluate_pretrained

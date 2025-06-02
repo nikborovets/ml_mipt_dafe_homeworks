@@ -10,7 +10,7 @@ stages:
 
   train_pretrained:
     # cmd: python -m src.train --epochs 1 --no-resume
-    cmd: python -m src.train --epochs 10
+    cmd: python -m src.train --epochs 100 --no-resume
     deps:
       - src/train.py
       - src/model.py
