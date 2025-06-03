@@ -74,3 +74,56 @@ stages:
       hash: md5
       md5: 4b92608ebb69130553b9d2a727a6a26b
       size: 16846
+  train_random:
+    cmd: python -m src.train --epochs 100 --no-resume --no-pretrained
+    deps:
+    - path: data_processed/
+      hash: md5
+      md5: cac39374db36895e66ce3b555f33eb12.dir
+      size: 6724490
+      nfiles: 2
+    - path: src/__init__.py
+      hash: md5
+      md5: 04e16978ebabe4a7a51e41c892a22a5b
+      size: 2929
+    - path: src/data.py
+      hash: md5
+      md5: d4338e730a57d55e5aa7348cd681d4f4
+      size: 8284
+    - path: src/model.py
+      hash: md5
+      md5: 15d2fbb65d6461709c554e16a59bfed8
+      size: 17352
+    - path: src/train.py
+      hash: md5
+      md5: 97b4956f68e31a98bcd47bf404368344
+      size: 36631
+  evaluate_random:
+    cmd: python -m src.evaluate --model-path best_model_random.pt --output-suffix
+      _random
+    deps:
+    - path: best_model_random.pt
+      hash: md5
+      md5: 75f0719abb681a6f56460e29e8ef33f4
+      size: 75009981
+    - path: data_processed/
+      hash: md5
+      md5: cac39374db36895e66ce3b555f33eb12.dir
+      size: 6724490
+      nfiles: 2
+    - path: src/__init__.py
+      hash: md5
+      md5: 04e16978ebabe4a7a51e41c892a22a5b
+      size: 2929
+    - path: src/data.py
+      hash: md5
+      md5: d4338e730a57d55e5aa7348cd681d4f4
+      size: 8284
+    - path: src/evaluate.py
+      hash: md5
+      md5: 05981f16cabdd5a9c298c00a8947ca21
+      size: 19920
+    - path: src/model.py
+      hash: md5
+      md5: 15d2fbb65d6461709c554e16a59bfed8
+      size: 17352

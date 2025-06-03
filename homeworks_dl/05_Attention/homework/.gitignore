@@ -141,3 +141,6 @@ best_model_pretrained.pt
 # /model_info_pretrained.json
 # /predictions_on_test_pretrained.txt
 /data_processed
+best_model_random.pt
+
+!training_eval_random_emb.log
