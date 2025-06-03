@@ -5,12 +5,18 @@ import sys
 from datetime import datetime
 
 
-def setup_logging(log_level=logging.INFO):
+def is_running_tests():
+    """Проверяет запущены ли тесты pytest."""
+    return 'pytest' in sys.modules
+
+
+def setup_logging(log_level=logging.INFO, enable_file_logging=True):
     """
     Настраивает логирование для всего проекта.
     
     Args:
         log_level: Уровень логирования (по умолчанию INFO)
+        enable_file_logging: Включить логирование в файл (по умолчанию False для тестов)
     """
     # Создаем форматтер
     formatter = logging.Formatter(
@@ -26,17 +32,18 @@ def setup_logging(log_level=logging.INFO):
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Console handler
+    # Console handler (всегда включен)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     
-    # File handler для логов в файл
-    file_handler = logging.FileHandler('training.log', mode='a', encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
+    # File handler (только если явно включен)
+    if enable_file_logging:
+        file_handler = logging.FileHandler('training.log', mode='a', encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
     
     # Отключаем излишнее логирование от внешних библиотек
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
@@ -58,7 +65,8 @@ def get_logger(name):
 
 
 # Автоматически настраиваем логирование при импорте пакета
-setup_logging()
+# Включаем file logging только если не в тестах
+setup_logging(enable_file_logging=not is_running_tests())
 
 
 def get_device():

@@ -23,7 +23,7 @@ stages:
     #   - model_info_pretrained.json
 
   train_random:
-    cmd: python -m src.train --epochs 10 --no-resume --no-pretrained
+    cmd: python -m src.train --epochs 100 --no-resume --no-pretrained
     deps:
       - src/train.py
       - src/model.py

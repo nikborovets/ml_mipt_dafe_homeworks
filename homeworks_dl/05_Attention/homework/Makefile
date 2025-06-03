@@ -78,3 +78,7 @@ dvc-init:
 cluster-dvc-run:
 	dvc repro -s train_pretrained 
 	dvc repro -s evaluate_pretrained
+
+cluster-dvc-run-random:
+	dvc repro -s train_random 
+	dvc repro -s evaluate_random
