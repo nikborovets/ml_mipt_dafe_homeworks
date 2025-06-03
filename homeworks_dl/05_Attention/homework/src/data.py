@@ -6,6 +6,10 @@ import os
 from torchtext.data import Field, Example, Dataset, BucketIterator
 from tqdm.auto import tqdm
 from . import get_device
+from src import get_logger
+
+# Создаем логгер для этого модуля
+logger = get_logger(__name__)
 
 BOS_TOKEN = '<s>'
 EOS_TOKEN = '</s>'
@@ -41,11 +45,11 @@ def load_and_process_data(csv_path='news.csv', train_ratio=0.85, min_freq=7, dev
     dataset = Dataset(examples, fields)
     train_dataset, test_dataset = dataset.split(split_ratio=train_ratio)
     
-    print(f'Train size = {len(train_dataset)}')
-    print(f'Test size = {len(test_dataset)}')
+    logger.info(f'Train size = {len(train_dataset)}')
+    logger.info(f'Test size = {len(test_dataset)}')
     
     word_field.build_vocab(train_dataset, min_freq=min_freq)
-    print(f'Vocab size = {len(word_field.vocab)}')
+    logger.info(f'Vocab size = {len(word_field.vocab)}')
     
     train_iter, test_iter = BucketIterator.splits(
         datasets=(train_dataset, test_dataset), 
@@ -198,9 +202,9 @@ if __name__ == "__main__":
     device = get_device()
     train_iter, test_iter, word_field = load_and_process_data(device=device)
     
-    print("Data processing completed successfully!")
-    print(f"Vocabulary size: {len(word_field.vocab)}")
-    print(f"PAD token index: {word_field.vocab.stoi['<pad>']}")
+    logger.info("Data processing completed successfully!")
+    logger.info(f"Vocabulary size: {len(word_field.vocab)}")
+    logger.info(f"PAD token index: {word_field.vocab.stoi['<pad>']}")
     
     # Сохраняем обработанные данные для DVC
     os.makedirs('data_processed', exist_ok=True)
@@ -222,4 +226,4 @@ if __name__ == "__main__":
     with open('data_processed/stats.pkl', 'wb') as f:
         pickle.dump(stats, f)
     
-    print(f"Processed data saved to data_processed/") 
+    logger.info(f"Processed data saved to data_processed/") 

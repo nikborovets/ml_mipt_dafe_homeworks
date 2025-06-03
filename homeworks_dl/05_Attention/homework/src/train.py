@@ -15,7 +15,11 @@ from torch.utils.tensorboard import SummaryWriter
 from .data import load_processed_data_iterators, convert_batch
 from .model import create_model, create_model_with_pretrained_embeddings
 from . import get_device
+from pathlib import Path
+from src import get_logger
 
+# Создаем логгер для этого модуля
+logger = get_logger(__name__)
 
 class LabelSmoothingLoss(nn.Module):
     """
@@ -155,11 +159,11 @@ def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None,
             
             # Проверка на NaN
             if torch.isnan(loss):
-                print(f"\n❌ NaN detected in loss at batch {i}!")
-                print(f"Output stats: min={output.min():.4f}, max={output.max():.4f}, mean={output.mean():.4f}")
-                print(f"Target stats: min={target_outputs.min()}, max={target_outputs.max()}")
+                logger.error(f"\n❌ NaN detected in loss at batch {i}!")
+                logger.error(f"Output stats: min={output.min():.4f}, max={output.max():.4f}, mean={output.mean():.4f}")
+                logger.error(f"Target stats: min={target_outputs.min()}, max={target_outputs.max()}")
                 if is_train:
-                    print("Skipping this batch...")
+                    logger.warning("Skipping this batch...")
                     continue
                 else:
                     break
@@ -175,12 +179,13 @@ def do_epoch(model, criterion, data_iter, optimizer=None, name=None, field=None,
                 has_nan_grad = False
                 for name, param in model.named_parameters():
                     if param.grad is not None and torch.isnan(param.grad).any():
-                        print(f"\n❌ NaN gradient detected in {name}")
+                        logger.error(f"\n❌ NaN gradient detected in {name}")
                         has_nan_grad = True
                         break
                 
                 if has_nan_grad:
-                    print("Skipping optimizer step due to NaN gradients")
+                    logger.warning("Skipping optimizer step due to NaN gradients")
+                    # optimizer.zero_grad()
                     continue
                 
                 optimizer.step()
@@ -289,19 +294,21 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         # Если продолжаем обучение, используем существующую директорию логов
         if history.get('tensorboard_log_dir') and resume_from_checkpoint:
             log_dir = history['tensorboard_log_dir']
-            print(f"🔄 Resuming TensorBoard logging to existing directory: {log_dir}")
+            logger.info(f"🔄 Resuming TensorBoard logging to existing directory: {log_dir}")
         else:
             # Создаем новую директорию с timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             model_type = "pretrained" if use_pretrained else "random"
             log_dir = f"runs/train_{model_type}_{timestamp}"
-            print(f"📊 Creating new TensorBoard log directory: {log_dir}")
-    
+            logger.info(f"📊 Creating new TensorBoard log directory: {log_dir}")
+            
     writer = SummaryWriter(log_dir)
-    history['tensorboard_log_dir'] = log_dir
     
-    print(f"TensorBoard logs saved to: {log_dir}")
-    print(f"Run 'tensorboard --logdir={log_dir}' to view logs")
+    # Сохраняем путь к логам в истории для последующего использования
+    logger.info(f"TensorBoard logs saved to: {log_dir}")
+    logger.info(f"Run 'tensorboard --logdir={log_dir}' to view logs")
+    
+    history['tensorboard_log_dir'] = log_dir
     
     # Переменные для отслеживания лучшей модели
     best_val_loss = float('inf')
@@ -329,10 +336,10 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
             
             writer.add_graph(model, (dummy_src, dummy_tgt, dummy_src_mask, dummy_tgt_mask))
         except Exception as e:
-            print(f"Could not log model graph: {e}")
+            logger.warning(f"Could not log model graph: {e}")
     
     for epoch in range(start_epoch, epochs_count):
-        print(f"\nEpoch {epoch + 1}/{epochs_count}")
+        logger.info(f"\nEpoch {epoch + 1}/{epochs_count}")
         
         # Обучение
         train_loss, train_rouge_scores = do_epoch(
@@ -343,11 +350,11 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         history['train_losses'].append(train_loss)
         history['train_rouge'].append(train_rouge_scores)
         
-        print(f"Train Loss: {train_loss:.4f}")
+        logger.info(f"Train Loss: {train_loss:.4f}")
         if train_rouge_scores:
-            print(f"Train ROUGE-1: {train_rouge_scores.get('rouge1', 0):.4f}, "
-                  f"ROUGE-2: {train_rouge_scores.get('rouge2', 0):.4f}, "
-                  f"ROUGE-L: {train_rouge_scores.get('rougeL', 0):.4f}")
+            logger.info(f"Train ROUGE-1: {train_rouge_scores.get('rouge1', 0):.4f}, "
+                       f"ROUGE-2: {train_rouge_scores.get('rouge2', 0):.4f}, "
+                       f"ROUGE-L: {train_rouge_scores.get('rougeL', 0):.4f}")
         
         # Валидация
         val_loss = None
@@ -361,11 +368,11 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
             history['val_losses'].append(val_loss)
             history['val_rouge'].append(val_rouge_scores)
             
-            print(f"Val Loss: {val_loss:.4f}")
+            logger.info(f"Val Loss: {val_loss:.4f}")
             if val_rouge_scores:
-                print(f"Val ROUGE-1: {val_rouge_scores.get('rouge1', 0):.4f}, "
-                      f"ROUGE-2: {val_rouge_scores.get('rouge2', 0):.4f}, "
-                      f"ROUGE-L: {val_rouge_scores.get('rougeL', 0):.4f}")
+                logger.info(f"Val ROUGE-1: {val_rouge_scores.get('rouge1', 0):.4f}, "
+                           f"ROUGE-2: {val_rouge_scores.get('rouge2', 0):.4f}, "
+                           f"ROUGE-L: {val_rouge_scores.get('rougeL', 0):.4f}")
             
             # Проверяем улучшение модели
             if save_best_model and val_loss < best_val_loss:
@@ -380,7 +387,7 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
                     'val_loss': val_loss,
                     'val_rouge': val_rouge_scores
                 }, best_model_path)
-                print(f"💾 New best model saved! Val Loss: {val_loss:.4f}")
+                logger.info(f"💾 New best model saved! Val Loss: {val_loss:.4f}")
             else:
                 epochs_without_improvement += 1
         
@@ -414,17 +421,17 @@ def fit(model, criterion, optimizer, train_iter, epochs_count=1, val_iter=None, 
         
         # Early stopping
         if early_stopping_patience and epochs_without_improvement >= early_stopping_patience:
-            print(f"\n🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
-            print(f"Best validation loss: {best_val_loss:.4f}")
+            logger.info(f"\n🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
+            logger.info(f"Best validation loss: {best_val_loss:.4f}")
             break
     
     writer.close()
     
     # Информация о результатах
     if best_model_path and os.path.exists(best_model_path):
-        print(f"\n✅ Training completed!")
-        print(f"Best model saved at: {best_model_path}")
-        print(f"Best validation loss: {best_val_loss:.4f}")
+        logger.info(f"\n✅ Training completed!")
+        logger.info(f"Best model saved at: {best_model_path}")
+        logger.info(f"Best validation loss: {best_val_loss:.4f}")
     
     return history
 
@@ -492,7 +499,7 @@ def save_training_plot(history, save_path='training_plot.png'):
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Training plots saved to {save_path}")
+    logger.info(f"Training plots saved to {save_path}")
 
 
 def save_checkpoint(model, optimizer, epoch, history, checkpoint_dir='checkpoints', filename=None):
@@ -528,7 +535,7 @@ def save_checkpoint(model, optimizer, epoch, history, checkpoint_dir='checkpoint
     }
     
     torch.save(checkpoint, checkpoint_path)
-    print(f"Checkpoint saved: {checkpoint_path}")
+    logger.info(f"Checkpoint saved: {checkpoint_path}")
     
     # Сохраняем также последний чекпоинт
     latest_path = os.path.join(checkpoint_dir, 'latest_checkpoint.pth')
@@ -551,7 +558,7 @@ def load_checkpoint(checkpoint_path, model, optimizer, device=None):
         tuple: (start_epoch, history)
     """
     if not os.path.exists(checkpoint_path):
-        print(f"Checkpoint not found: {checkpoint_path}")
+        logger.error(f"Checkpoint not found: {checkpoint_path}")
         return 0, {
             'train_losses': [],
             'val_losses': [],
@@ -560,7 +567,7 @@ def load_checkpoint(checkpoint_path, model, optimizer, device=None):
             'tensorboard_log_dir': None
         }
     
-    print(f"Loading checkpoint: {checkpoint_path}")
+    logger.info(f"Loading checkpoint: {checkpoint_path}")
     
     # Используем переданное устройство или CPU как fallback
     map_location = device if device is not None else 'cpu'
@@ -577,8 +584,8 @@ def load_checkpoint(checkpoint_path, model, optimizer, device=None):
     start_epoch = checkpoint['epoch'] + 1  # Начинаем со следующей эпохи
     history = checkpoint['history']
     
-    print(f"Checkpoint loaded from epoch {checkpoint['epoch']} on device: {map_location}")
-    print(f"Resuming training from epoch {start_epoch}")
+    logger.info(f"Checkpoint loaded from epoch {checkpoint['epoch']} on device: {map_location}")
+    logger.info(f"Resuming training from epoch {start_epoch}")
     
     return start_epoch, history
 
@@ -634,7 +641,7 @@ def cleanup_old_checkpoints(checkpoint_dir='checkpoints', keep_last=3):
     for old_file in checkpoint_files[:-keep_last]:
         old_path = os.path.join(checkpoint_dir, old_file)
         os.remove(old_path)
-        print(f"Removed old checkpoint: {old_path}")
+        logger.info(f"Removed old checkpoint: {old_path}")
 
 
 def main():
@@ -650,12 +657,12 @@ def main():
     
     args = parser.parse_args()
     
-    print("Starting training...")
-    print(f"Arguments: {vars(args)}")
+    logger.info("Starting training...")
+    logger.info(f"Arguments: {vars(args)}")
     
     # Автоматический выбор устройства mps -> cuda -> cpu
     device = get_device()
-    print(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
     
     # Загружаем данные
     train_iter, test_iter, word_field = load_processed_data_iterators(device=device)
@@ -666,18 +673,18 @@ def main():
     use_pretrained = os.path.exists(fasttext_path) and not args.no_pretrained
     
     if use_pretrained:
-        print(f"✓ Found pretrained embeddings at {fasttext_path}")
-        print("Training with pretrained Russian FastText embeddings (Task 6)")
+        logger.info(f"✓ Found pretrained embeddings at {fasttext_path}")
+        logger.info("Training with pretrained Russian FastText embeddings (Task 6)")
         
         # Создание модели с предобученными эмбеддингами (300d)
         model = create_model_with_pretrained_embeddings(vocab_size, word_field, fasttext_path)
         model_size = 300
     else:
         if args.no_pretrained:
-            print("⚠ Using random embeddings (forced by --no-pretrained flag)")
+            logger.warning("⚠ Using random embeddings (forced by --no-pretrained flag)")
         else:
-            print("⚠ Pretrained embeddings not found. Using random embeddings.")
-            print("To use pretrained embeddings, run: python -m src.embeddings.download_embeddings")
+            logger.warning("⚠ Pretrained embeddings not found. Using random embeddings.")
+            logger.warning("To use pretrained embeddings, run: python -m src.embeddings.download_embeddings")
         
         # Создание модели с обычными эмбеддингами (256d)
         model = create_model(vocab_size=vocab_size, d_model=256)
@@ -685,9 +692,9 @@ def main():
     
     model.to(device)
     
-    print(f"Model created with d_model={model_size}")
-    print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
-    print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    logger.info(f"Model created with d_model={model_size}")
+    logger.info(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
+    logger.info(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     
     # Label Smoothing Loss (Задание 5)
     criterion = LabelSmoothingLoss(
@@ -703,13 +710,13 @@ def main():
             model_size=model_size, factor=1, warmup=4000,  # Уменьшили factor с 2 до 1
             optimizer=torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
         )
-        print("Using conservative learning rate for pretrained embeddings (factor=1)")
+        logger.info("Using conservative learning rate for pretrained embeddings (factor=1)")
     else:
         optimizer = NoamOpt(
             model_size=model_size, factor=2, warmup=4000,
             optimizer=torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
         )
-        print("Using standard learning rate for random embeddings (factor=2)")
+        logger.info("Using standard learning rate for random embeddings (factor=2)")
     
     # Создаем необходимые директории
     os.makedirs('runs', exist_ok=True)
@@ -719,13 +726,13 @@ def main():
     if not args.no_resume:
         latest_checkpoint = find_latest_checkpoint(args.checkpoint_dir)
         if latest_checkpoint:
-            print(f"🔄 Found existing checkpoint: {latest_checkpoint}")
-            print("Training will resume from the last checkpoint.")
-            print("Use --no-resume to start from scratch.")
+            logger.info(f"🔄 Found existing checkpoint: {latest_checkpoint}")
+            logger.info("Training will resume from the last checkpoint.")
+            logger.info("Use --no-resume to start from scratch.")
         else:
-            print("🆕 No existing checkpoints found. Starting fresh training.")
+            logger.info("🆕 No existing checkpoints found. Starting fresh training.")
     else:
-        print("🆕 Starting training from scratch (--no-resume flag)")
+        logger.info("🆕 Starting training from scratch (--no-resume flag)")
     
     # Обучение с чекпоинтами
     history = fit(
@@ -750,28 +757,28 @@ def main():
     # Загружаем лучшую модель для финального сохранения
     best_model_path = os.path.join(args.checkpoint_dir, 'best_model.pth')
     if os.path.exists(best_model_path):
-        print(f"📥 Loading best model from {best_model_path}")
+        logger.info(f"📥 Loading best model from {best_model_path}")
         best_checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
         model.load_state_dict(best_checkpoint['model_state_dict'])
         
         # Сохраняем в стандартном формате
         torch.save(model.state_dict(), f'best_model{model_suffix}.pt')
-        print(f"💾 Best model saved as: best_model{model_suffix}.pt")
+        logger.info(f"💾 Best model saved as: best_model{model_suffix}.pt")
         
         # Информация о лучшей модели
         best_epoch = best_checkpoint['epoch']
         best_val_loss = best_checkpoint['val_loss']
         best_rouge = best_checkpoint.get('val_rouge', {})
         
-        print(f"📊 Best model from epoch {best_epoch + 1}:")
-        print(f"   Validation Loss: {best_val_loss:.4f}")
+        logger.info(f"📊 Best model from epoch {best_epoch + 1}:")
+        logger.info(f"   Validation Loss: {best_val_loss:.4f}")
         if best_rouge:
             for metric, score in best_rouge.items():
-                print(f"   {metric.upper()}: {score:.4f}")
+                logger.info(f"   {metric.upper()}: {score:.4f}")
     else:
         # Сохраняем текущую модель если лучшей нет
         torch.save(model.state_dict(), f'best_model{model_suffix}.pt')
-        print(f"💾 Final model saved as: best_model{model_suffix}.pt")
+        logger.info(f"💾 Final model saved as: best_model{model_suffix}.pt")
     
     # Сохраняем графики обучения
     save_training_plot(history, f'training_plot{model_suffix}.png')
@@ -795,36 +802,36 @@ def main():
     with open(f'model_info{model_suffix}.json', 'w', encoding='utf-8') as f:
         json.dump(model_info, f, indent=2, ensure_ascii=False)
     
-    print("\n" + "="*60)
-    print("🎉 TRAINING COMPLETED!")
-    print("="*60)
-    print(f"Model type: {'Pretrained embeddings' if use_pretrained else 'Random embeddings'}")
-    print(f"Total epochs trained: {len(history['train_losses'])}")
-    print(f"Model saved as: best_model{model_suffix}.pt")
-    print(f"Training plot saved as: training_plot{model_suffix}.png")
-    print(f"Model info saved as: model_info{model_suffix}.json")
-    print(f"Checkpoints saved in: {args.checkpoint_dir}/")
-    print(f"TensorBoard logs: {history.get('tensorboard_log_dir')}")
-    print(f"Run 'tensorboard --logdir={history.get('tensorboard_log_dir')}' to view training progress")
+    logger.info("\n" + "="*60)
+    logger.info("🎉 TRAINING COMPLETED!")
+    logger.info("="*60)
+    logger.info(f"Model type: {'Pretrained embeddings' if use_pretrained else 'Random embeddings'}")
+    logger.info(f"Total epochs trained: {len(history['train_losses'])}")
+    logger.info(f"Model saved as: best_model{model_suffix}.pt")
+    logger.info(f"Training plot saved as: training_plot{model_suffix}.png")
+    logger.info(f"Model info saved as: model_info{model_suffix}.json")
+    logger.info(f"Checkpoints saved in: {args.checkpoint_dir}/")
+    logger.info(f"TensorBoard logs: {history.get('tensorboard_log_dir')}")
+    logger.info(f"Run 'tensorboard --logdir={history.get('tensorboard_log_dir')}' to view training progress")
     
     # Задание 6: Сравнение результатов
     if use_pretrained and model_info['final_rouge']:
-        print("\n" + "="*60)
-        print("TASK 6: Results with pretrained Russian embeddings")
-        print("="*60)
-        print(f"Final ROUGE scores:")
+        logger.info("\n" + "="*60)
+        logger.info("TASK 6: Results with pretrained Russian embeddings")
+        logger.info("="*60)
+        logger.info(f"Final ROUGE scores:")
         for metric, score in model_info['final_rouge'].items():
-            print(f"  {metric.upper()}: {score:.4f}")
-        print(f"Final validation loss: {model_info['final_val_loss']:.4f}")
+            logger.info(f"  {metric.upper()}: {score:.4f}")
+        logger.info(f"Final validation loss: {model_info['final_val_loss']:.4f}")
         if 'best_val_loss' in locals():
-            print(f"Best validation loss: {best_val_loss:.4f}")
-        print("\nTo compare with random embeddings, use --no-pretrained flag.")
+            logger.info(f"Best validation loss: {best_val_loss:.4f}")
+        logger.info("\nTo compare with random embeddings, use --no-pretrained flag.")
     
-    print("\n💡 Tips:")
-    print("  - Resume training: python -m src.train")
-    print("  - Start fresh: python -m src.train --no-resume")
-    print("  - More epochs: python -m src.train --epochs 20")
-    print("  - Early stopping: python -m src.train --early-stopping 5")
+    logger.info("\n💡 Tips:")
+    logger.info("  - Resume training: python -m src.train")
+    logger.info("  - Start fresh: python -m src.train --no-resume")
+    logger.info("  - More epochs: python -m src.train --epochs 20")
+    logger.info("  - Early stopping: python -m src.train --early-stopping 5")
 
 
 if __name__ == "__main__":

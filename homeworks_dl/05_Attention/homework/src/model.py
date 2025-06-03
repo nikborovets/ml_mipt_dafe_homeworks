@@ -8,7 +8,10 @@ import fasttext
 import io
 import os
 from pathlib import Path
+from src import get_logger
 
+# Создаем логгер для этого модуля
+logger = get_logger(__name__)
 
 class SharedEmbeddings(nn.Module):
     """
@@ -21,9 +24,9 @@ class SharedEmbeddings(nn.Module):
         self.use_pretrained = use_pretrained
         
         if use_pretrained and fasttext_path and field:
-            print(f"Loading pretrained embeddings from {fasttext_path}...")
+            logger.info(f"Loading pretrained embeddings from {fasttext_path}...")
             self.embedding = self._load_pretrained_embeddings(vocab_size, d_model, fasttext_path, field)
-            print("✓ Pretrained embeddings loaded successfully!")
+            logger.info("✓ Pretrained embeddings loaded successfully!")
         else:
             # Обычные рандомные эмбеддинги
             self.embedding = nn.Embedding(vocab_size, d_model)
@@ -34,7 +37,7 @@ class SharedEmbeddings(nn.Module):
         """Загружает предобученные FastText эмбеддинги."""
         # Проверяем существование файла
         if not os.path.exists(fasttext_path):
-            print(f"Warning: FastText file {fasttext_path} not found. Using random embeddings.")
+            logger.warning(f"Warning: FastText file {fasttext_path} not found. Using random embeddings.")
             embedding = nn.Embedding(vocab_size, d_model)
             nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
             return embedding
@@ -42,12 +45,16 @@ class SharedEmbeddings(nn.Module):
         try:
             # Загружаем модель FastText
             ft_model = fasttext.load_model(fasttext_path)
+            logger.info(f"Loading pretrained embeddings from {fasttext_path}...")
             
             # Проверяем размерность
             ft_dim = ft_model.get_dimension()
+            
+            # Проверяем совместимость размерностей
             if ft_dim != d_model:
-                print(f"Warning: FastText dimension ({ft_dim}) != model dimension ({d_model})")
-                print("Using random embeddings instead.")
+                logger.warning(f"FastText dimension ({ft_dim}) != model dimension ({d_model})")
+                logger.warning("Using random embeddings instead.")
+                # Возвращаемся к случайным эмбеддингам
                 embedding = nn.Embedding(vocab_size, d_model)
                 nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
                 return embedding
@@ -69,7 +76,7 @@ class SharedEmbeddings(nn.Module):
                     # Если слово не найдено, используем случайный вектор
                     embedding_matrix[idx] = torch.randn(d_model) * (d_model**-0.5)
             
-            print(f"✓ Found embeddings for {found_words}/{vocab_size} words ({100*found_words/vocab_size:.1f}%)")
+            logger.info(f"✓ Found embeddings for {found_words}/{vocab_size} words ({100*found_words/vocab_size:.1f}%)")
             
             # Создаем embedding слой с предзагруженными весами
             embedding = nn.Embedding(vocab_size, d_model)
@@ -78,8 +85,9 @@ class SharedEmbeddings(nn.Module):
             return embedding
             
         except Exception as e:
-            print(f"Error loading FastText model: {e}")
-            print("Using random embeddings instead.")
+            logger.error(f"Error loading FastText model: {e}")
+            logger.warning("Using random embeddings instead.")
+            # Fallback на случайные эмбеддинги
             embedding = nn.Embedding(vocab_size, d_model)
             nn.init.normal_(embedding.weight, mean=0, std=d_model**-0.5)
             return embedding
