@@ -22,7 +22,7 @@ stages:
       size: 6724490
       nfiles: 2
   train_pretrained:
-    cmd: python -m src.train --epochs 10
+    cmd: python -m src.train --epochs 100 --no-resume
     deps:
     - path: data_processed/
       hash: md5
@@ -51,7 +51,7 @@ stages:
     deps:
     - path: best_model_pretrained.pt
       hash: md5
-      md5: 7ebfb0e85094bdd2213502750af076f8
+      md5: 01abd077a437ea2226625711af3d3090
       size: 88486749
     - path: data_processed/
       hash: md5
