@@ -1,0 +1,12 @@
+torch
+torchvision
+tqdm
+wandb
+torchinfo
+tensorboard
+pyyaml
+scikit-image
+opencv-python
+opencv-contrib-python
+albumentations
+matplotlib
