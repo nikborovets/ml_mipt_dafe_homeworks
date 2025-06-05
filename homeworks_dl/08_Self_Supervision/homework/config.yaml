@@ -1,0 +1,56 @@
+# Конфигурация для обучения Prototypical Networks
+
+# Параметры данных
+data_dir: "data"
+
+# Параметры эпизодов
+n_way: 60          # количество классов в эпизоде обучения
+n_support: 5       # количество support примеров на класс
+n_query: 5         # количество query примеров на класс
+
+# Параметры обучения
+max_epoch: 5       # максимальное количество эпох
+epoch_size: 2000   # количество эпизодов в эпохе
+lr: 0.001          # learning rate
+
+# Параметры модели
+x_dim: [3, 28, 28] # размерность входного изображения
+hid_dim: 64        # количество фильтров в CNN
+z_dim: 64          # размерность embedding
+
+# Пути для сохранения
+log_dir: "runs/omniglot_protonet"
+save_path: "models/protonet.pt"
+
+# Параметры тестирования
+test:
+  n_way: 5         # количество классов в тестовом эпизоде
+  n_support: 5     # количество support примеров на класс
+  n_query: 5       # количество query примеров на класс
+  test_episodes: 1000  # количество тестовых эпизодов
+
+# Параметры для разных сценариев тестирования
+scenarios:
+  # 5-way 1-shot
+  five_way_one_shot:
+    n_way: 5
+    n_support: 1
+    n_query: 5
+    
+  # 5-way 5-shot  
+  five_way_five_shot:
+    n_way: 5
+    n_support: 5
+    n_query: 5
+    
+  # 20-way 1-shot
+  twenty_way_one_shot:
+    n_way: 20
+    n_support: 1
+    n_query: 5
+    
+  # 20-way 5-shot
+  twenty_way_five_shot:
+    n_way: 20
+    n_support: 5
+    n_query: 5 

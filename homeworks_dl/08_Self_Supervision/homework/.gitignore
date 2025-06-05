@@ -133,3 +133,5 @@ dmypy.json
 
 russian-bp.md
 eng-bp.md
+data/
+protonet.pt
