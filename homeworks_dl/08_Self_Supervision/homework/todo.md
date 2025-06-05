@@ -36,10 +36,10 @@
 - [x] Сохранение визуализаций в metrics/
 
 ### 3. Тесты (tests/)
-- [ ] tests/test_dataset.py - тесты датасета
-- [ ] tests/test_pipeline.py - end-to-end тесты
-- [ ] tests/test_metrics.py - тесты метрик
-- [ ] tests/test_loss.py - тесты функции потерь
+- [x] tests/test_dataset.py - тесты датасета
+- [x] tests/test_pipeline.py - end-to-end тесты
+- [x] tests/test_metrics.py - тесты метрик
+- [x] tests/test_loss.py - тесты функции потерь
 
 ### 4. DVC Pipeline
 - [ ] Создать dvc.yaml с этапами prepare, train, evaluate
@@ -50,13 +50,13 @@
 - [ ] Создать config.yaml для параметров
 - [ ] Генерация predictions_on_test.txt (10 примеров)
 - [ ] Создать package.sh для архивирования
-- [ ] Проверить работу `make test`
+- [x] Проверить работу `make test`
 
 ## Новые задачи
 - [x] Создать config.yaml с параметрами
 - [ ] Загрузить датасет Omniglot
-- [ ] Проверить совместимость с устройством mps (M1 Mac)
-- [ ] Создать базовые тесты для проверки работоспособности
+- [x] Проверить совместимость с устройством mps (M1 Mac)
+- [x] Создать базовые тесты для проверки работоспособности
 
 ## Приоритет
 1. Высокий: src/data.py, src/model.py - основа функциональности

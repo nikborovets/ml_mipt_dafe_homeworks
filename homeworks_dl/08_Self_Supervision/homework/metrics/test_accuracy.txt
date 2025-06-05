@@ -1,2 +1,2 @@
-Test Accuracy: 0.3264
+Test Accuracy: 0.3250
 Number of test episodes: 10

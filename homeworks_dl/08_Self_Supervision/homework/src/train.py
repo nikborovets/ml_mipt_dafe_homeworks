@@ -7,6 +7,7 @@ import os
 import argparse
 from typing import Optional
 import yaml
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -156,14 +157,28 @@ def main():
     
     args = parser.parse_args()
     
-    # Загружаем конфиг если есть
+    # Загружаем конфиг если есть (только если аргумент не был передан в CLI)
     if os.path.exists(args.config):
         with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
-        # Обновляем аргументы из конфига
+        
+        # Получаем аргументы по умолчанию
+        default_parser = argparse.ArgumentParser()
+        default_parser.add_argument('--n_way', type=int, default=60)
+        default_parser.add_argument('--n_support', type=int, default=5)
+        default_parser.add_argument('--n_query', type=int, default=5)
+        default_parser.add_argument('--max_epoch', type=int, default=5)
+        default_parser.add_argument('--epoch_size', type=int, default=2000)
+        default_parser.add_argument('--lr', type=float, default=0.001)
+        default_parser.add_argument('--log_dir', type=str, default='runs/omniglot_protonet')
+        default_parser.add_argument('--save_path', type=str, default='models/protonet.pt')
+        default_args = default_parser.parse_args([])
+        
+        # Обновляем только те аргументы, которые равны значениям по умолчанию
         for key, value in config.items():
-            if hasattr(args, key):
-                setattr(args, key, value)
+            if hasattr(args, key) and hasattr(default_args, key):
+                if getattr(args, key) == getattr(default_args, key):
+                    setattr(args, key, value)
     
     print("Loading data...")
     # Загружаем данные
@@ -181,8 +196,13 @@ def main():
     # Создаем оптимизатор
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
+    # Создаем новую директорию с timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = f"runs/train_{timestamp}"
+    print(f"📊 Creating new TensorBoard log directory: {log_dir}")
+    
     # Создаем TensorBoard writer
-    writer = SummaryWriter(log_dir=args.log_dir)
+    writer = SummaryWriter(log_dir=log_dir)
     
     print("Starting training...")
     print(f"Device: {model.device}")

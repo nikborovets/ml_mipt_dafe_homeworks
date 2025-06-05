@@ -80,9 +80,7 @@ def get_augmentation_transform(seed: Optional[int] = None) -> A.Compose:
     Returns:
         albumentations.Compose: композиция трансформаций
     """
-    if seed is not None:
-        A.core.transforms_interface.BasicTransform.__init__ = lambda self, *args, **kwargs: None
-        
+    # Простая нормализация без сложных трансформаций для избежания проблем с версиями
     transform = A.Compose([
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ToTensorV2()

@@ -15,17 +15,21 @@ prepare-data:
 train:
 	python -m src.train --config config.yaml
 
-# Тестирование модели
+# Запуск тестов pytest
 test:
+	PYTHONPATH=. pytest --maxfail=1 --disable-warnings -q tests/
+
+# Оценка модели
+evaluate:
 	python -m src.evaluate --model_path models/protonet.pt --visualize
 
-# Запуск тестов pytest
+# Запуск тестов с покрытием
 coverage:
-	pytest --maxfail=1 --disable-warnings -q tests/
+	PYTHONPATH=. pytest --maxfail=1 --disable-warnings -q tests/ --cov=src --cov-report=term-missing
 
 # Запуск TensorBoard
 tensorboard:
-	tensorboard --logdir runs/omniglot_protonet
+	tensorboard --logdir runs/
 
 # Быстрое обучение для тестирования
 quick-train:
@@ -80,9 +84,10 @@ help:
 	@echo "  install        - Установить зависимости"
 	@echo "  prepare-data   - Подготовить данные Omniglot"
 	@echo "  train          - Обучить модель"
-	@echo "  test           - Протестировать модель"
-	@echo "  coverage       - Запустить pytest тесты"
-	@echo "  tensorboard    - Запустить TensorBoard"
+	@echo "  test           - Запустить pytest тесты"
+	@echo "  evaluate       - Оценить модель"
+	@echo "  coverage       - Запустить pytest тесты с покрытием"
+	@echo "  tensorboard    - Запустить TensorBoard (все эксперименты)"
 	@echo "  quick-train    - Быстрое обучение (1 эпоха)"
 	@echo "  quick-test     - Быстрое тестирование (10 эпизодов)"
 	@echo "  download-data  - Загрузить данные"
