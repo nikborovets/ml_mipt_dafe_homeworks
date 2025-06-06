@@ -1,0 +1,21 @@
+train:
+  episodes: 2000
+  learning_rate: 0.00025
+  epsilon_decay: 0.9999
+  batch_size: 64
+  target_update_freq: 10
+  replay_start_size: 2000
+
+test_params:
+  batch_size: 32
+  coverage_threshold: 0.8
+
+model:
+  state_size: 5
+  action_size: 2
+  hidden_size: 256
+  
+environment:
+  game_speed: 30
+  screen_width: 288
+  screen_height: 512 
