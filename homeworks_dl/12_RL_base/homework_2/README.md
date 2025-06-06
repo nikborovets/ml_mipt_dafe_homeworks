@@ -14,12 +14,11 @@ dvc repro
 dvc repro train
 # посмотреть граф зависимостей
 dvc dag
-# посмотреть лог обучения
-dvc logs train
-# посмотреть лог тестирования
-dvc logs test
-# посмотреть лог валидации
-dvc logs validate
+
+# запуск отдельных этапов
+dvc repro prepare
+dvc repro test
+dvc repro validate
 ```
 
 ```bash

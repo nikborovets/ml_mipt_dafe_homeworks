@@ -26,8 +26,6 @@ stages:
       - train.batch_size
     outs:
       - models/
-    metrics:
-      - logs/training_metrics.json
 
   validate:
     cmd: >
