@@ -335,6 +335,7 @@ def train_smart_agent(episodes=3000, lr=0.00025, model_load_path=None):
         # Логирование каждого эпизода
         print(f"Эп {episode:5d} | Счет: {current_score:3d} | Ср.счет(100): {avg_score_last_100:6.2f} | "
                   f"Макс: {max_score_achieved:3d} | Epsilon: {agent.epsilon:.4f} | "
+                  f"Награда: {total_episode_reward:8.2f} | "
                   f"Ср.награда(100): {avg_reward_last_100:8.2f} | Шаги: {steps_in_episode:4d}")
         
         if max_score_achieved >= 100: # Минимальное требование по ДЗ
