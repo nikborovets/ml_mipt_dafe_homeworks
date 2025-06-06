@@ -3,8 +3,6 @@ stages:
     cmd: python -c "import os; os.makedirs('data', exist_ok=True); os.makedirs('models', exist_ok=True); os.makedirs('logs', exist_ok=True); print('Directories created')"
     outs:
       - data
-      - models  
-      - logs
 
   test:
     cmd: python -m pytest tests/ -v --tb=short
@@ -28,46 +26,28 @@ stages:
       - train.batch_size
     outs:
       - models/
-      - logs/
     metrics:
       - logs/training_metrics.json
 
   validate:
-    cmd: python -c "
-import json
-import os
-import glob
-
-# Поиск последних созданных файлов модели
-model_files = glob.glob('models/smart_agent_*.pt')
-if not model_files:
-    print('No model files found')
-    exit(1)
-    
-latest_model = max(model_files, key=os.path.getctime)
-print(f'Latest model: {latest_model}')
-
-# Простая валидация - проверяем размер файла модели
-model_size = os.path.getsize(latest_model)
-print(f'Model size: {model_size} bytes')
-
-# Проверяем наличие логов
-log_files = glob.glob('logs/*.png')
-print(f'Found {len(log_files)} log files')
-
-# Создаем файл валидации
-validation_results = {
-    'model_file': latest_model,
-    'model_size_bytes': model_size,
-    'log_files_count': len(log_files),
-    'validation_passed': model_size > 1000 and len(log_files) >= 0
-}
-
-with open('logs/validation_results.json', 'w') as f:
-    json.dump(validation_results, f, indent=2)
-    
-print('Validation completed')
-"
+    cmd: >
+      python -c "
+      import json;
+      import os;
+      import glob;
+      model_files = glob.glob('models/smart_agent_*.pt');
+      if not model_files: print('No model files found'); exit(1);
+      latest_model = max(model_files, key=os.path.getctime);
+      print(f'Latest model: {latest_model}');
+      model_size = os.path.getsize(latest_model);
+      print(f'Model size: {model_size} bytes');
+      log_files = glob.glob('logs/*.png');
+      print(f'Found {len(log_files)} log files');
+      validation_results = {'model_file': latest_model, 'model_size_bytes': model_size, 'log_files_count': len(log_files), 'validation_passed': model_size > 1000 and len(log_files) >= 0};
+      os.makedirs('logs', exist_ok=True);
+      with open('logs/validation_results.json', 'w') as f: json.dump(validation_results, f, indent=2);
+      print('Validation completed')
+      "
     deps:
       - models/
     outs:

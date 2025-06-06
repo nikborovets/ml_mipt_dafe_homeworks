@@ -1,0 +1,23 @@
+schema: '2.0'
+stages:
+  test:
+    cmd: python -m pytest tests/ -v --tb=short
+    deps:
+    - path: game/
+      hash: md5
+      md5: 88a5da59697e49bdd0425bf83894eea5.dir
+      size: 11844
+      nfiles: 3
+    - path: smart_dqn_agent.py
+      hash: md5
+      md5: 3e79d206ab0da2c3cab3a1d192bf2a7e
+      size: 27343
+    - path: tests/
+      hash: md5
+      md5: c3ed42f25541a5ee7214888114478f44.dir
+      size: 24183
+      nfiles: 3
+    params:
+      params.yaml:
+        test_params.batch_size: 32
+        test_params.coverage_threshold: 0.8
