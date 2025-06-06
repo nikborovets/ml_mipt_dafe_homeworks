@@ -133,3 +133,4 @@ dmypy.json
 
 models/
 models_ga/
+!logs_1300.log
