@@ -131,6 +131,6 @@ dmypy.json
 .DS_Store
 .idea
 
-models/
-models_ga/
+
 !logs_1300.log
+!models/smart_agent_final_20250606_183246.pt
