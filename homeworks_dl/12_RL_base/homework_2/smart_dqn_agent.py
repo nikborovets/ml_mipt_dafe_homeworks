@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 import argparse
+import datetime # Добавим импорт datetime для временной метки
 
 class SmartDQN(nn.Module):
     """Улучшенная версия DQN с dropout и batch normalization"""
@@ -52,8 +53,8 @@ class SmartAgent:
         self.action_size = action_size
         self.memory = deque(maxlen=50000)
         self.epsilon = 0.9  # Начальное значение epsilon
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.998 # Можно сделать более медленным 0.9995
+        self.epsilon_min = 0.001
+        self.epsilon_decay = 0.9999 # Замедляем затухание epsilon еще больше
         self.learning_rate = lr
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
@@ -132,6 +133,9 @@ class SmartAgent:
 
         if terminal:
             return -100  # Большое наказание за смерть
+
+        # Награда за каждый выживший кадр (помогает агенту научиться дольше оставаться в живых)
+        reward += 1.0 
 
         if env.score > prev_score:
             return 200  # Очень большая награда за очки (прохождение трубы)
@@ -251,7 +255,7 @@ def train_smart_agent(episodes=3000, lr=0.00025, model_load_path=None):
             print(f"Не удалось загрузить модель {model_load_path}, начинаем обучение с нуля.")
 
     target_update_freq = 10  # Обновляем target network каждые 10 эпизодов (было 50, но можно чаще при коротких эпизодах)
-    replay_start_size = 1000 # Начинаем обучение после N шагов в памяти (было 200, но лучше больше)
+    replay_start_size = 2000 # Начинаем обучение после N шагов в памяти (увеличено для большего исследования)
     batch_size = 64
 
     scores_history = []
@@ -264,6 +268,9 @@ def train_smart_agent(episodes=3000, lr=0.00025, model_load_path=None):
     
     print(f"Обучение SmartDQN агента на устройстве: {agent.device}")
     start_time = time.time()
+    
+    # Генерируем временную метку для названий файлов
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     
     for episode in range(1, episodes + 1):
         env.__init__() # Сброс игры
@@ -318,25 +325,27 @@ def train_smart_agent(episodes=3000, lr=0.00025, model_load_path=None):
         
         if current_score > max_score_achieved:
             max_score_achieved = current_score
-            agent.save(f'models/smart_agent_best_score_{max_score_achieved}.pt')
+            # Добавляем временную метку к названию файла модели
+            agent.save(f'models/smart_agent_best_score_{max_score_achieved}_{timestamp}.pt')
             print(f"🎉 Новый рекорд! Счет: {max_score_achieved} (эпизод {episode})")
         
         avg_score_last_100 = np.mean(scores_history[-100:]) if len(scores_history) >= 100 else np.mean(scores_history)
         avg_reward_last_100 = np.mean(episode_rewards_history[-100:]) if len(episode_rewards_history) >= 100 else np.mean(episode_rewards_history)
 
-        if episode % 20 == 0: # Логирование каждые 20 эпизодов
-            print(f"Эп {episode:5d} | Счет: {current_score:3d} | Ср.счет(100): {avg_score_last_100:6.2f} | "
+        # Логирование каждого эпизода
+        print(f"Эп {episode:5d} | Счет: {current_score:3d} | Ср.счет(100): {avg_score_last_100:6.2f} | "
                   f"Макс: {max_score_achieved:3d} | Epsilon: {agent.epsilon:.4f} | "
                   f"Ср.награда(100): {avg_reward_last_100:8.2f} | Шаги: {steps_in_episode:4d}")
         
         if max_score_achieved >= 100: # Минимальное требование по ДЗ
             print(f"🏆 ЦЕЛЬ ДОСТИГНУТА! Максимальный счет: {max_score_achieved} в эпизоде {episode}.")
-            agent.save(f'models/smart_agent_target_reached_100.pt')
+            # Добавляем временную метку к названию файла модели
+            agent.save(f'models/smart_agent_target_reached_100_{timestamp}.pt')
             # Можно раскомментировать break, если нужно остановиться после достижения цели
             # break 
             
-    # Финальное сохранение
-    agent.save('models/smart_agent_final.pt')
+    # Финальное сохранение с временной меткой
+    agent.save(f'models/smart_agent_final_{timestamp}.pt')
     total_training_time = time.time() - start_time
     print(f"Обучение завершено за {total_training_time/60:.2f} минут.")
     
@@ -397,8 +406,9 @@ def train_smart_agent(episodes=3000, lr=0.00025, model_load_path=None):
         plt.ylabel('Epsilon')
     
     plt.tight_layout()
-    plt.savefig('logs/smart_agent_training_report.png', dpi=150)
-    print("Графики обучения сохранены в logs/smart_agent_training_report.png")
+    # Добавляем временную метку к названию файла графика
+    plt.savefig(f'logs/smart_agent_training_report_{timestamp}.png', dpi=150)
+    print(f"Графики обучения сохранены в logs/smart_agent_training_report_{timestamp}.png")
     # plt.show() # Раскомментируйте, если хотите показать графики сразу
 
     print(f"\n{'='*50}")
